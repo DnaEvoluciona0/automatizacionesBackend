@@ -1,0 +1,31 @@
+# Ignorar el directorio de caché de Python
+__pycache__/
+*.pyc
+
+# Ignorar la base de datos de desarrollo de SQLite
+db.sqlite3
+*.sqlite3
+
+# ¡MUY IMPORTANTE! Ignorar archivos de variables de entorno locales
+# Estos contienen secretos que no deben ir en la imagen.
+.env
+.env.*
+.env.*.local
+
+# Ignorar directorios de entornos virtuales de Python
+.venv
+venv/
+env/
+
+# Ignorar archivos y directorios de control de versiones y de Docker
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+README.md
+
+
+# Ignorar archivos de logs
+*.log
+logs/

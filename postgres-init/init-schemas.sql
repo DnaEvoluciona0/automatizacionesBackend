@@ -1,0 +1,2 @@
+CREATE SCHEMA IF NOT EXISTS administracion;
+CREATE SCHEMA IF NOT EXISTS produccionLogistica;

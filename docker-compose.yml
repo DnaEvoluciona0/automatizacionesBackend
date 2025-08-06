@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    command: gunicorn automatizacionesDna.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - static_volume:/appReportes/staticfiles
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - URL_ODOO=${URL_ODOO}
+      - DATABASE_ODOO=${DATABASE_ODOO}
+      - USERNAME_ODOO=${USERNAME_ODOO}
+      - PASSWORD_ODOO=${PASSWORD_ODOO}
+      - BASEDATOS=${BASEDATOS}
+      - USUARIOBD=${USUARIOBD}
+      - PASSWORDBD=${PASSWORDBD}
+      - PUERTOBD=${PUERTOBD}
+      - DBHOST=${DBHOST}
+    depends_on:
+      - db
+
+  db:
+    image: postgres:14
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    environment:
+      - POSTGRES_DB=${BASEDATOS}
+      - POSTGRES_USER=${USUARIOBD}
+      - POSTGRES_PASSWORD=${PASSWORDBD}
+      
+
+volumes:
+  postgres_data:
+  static_volume:
+

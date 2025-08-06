@@ -1,0 +1,40 @@
+# Entornos Virtuales
+autoDjango/
+env/
+.venv/
+.autoenv/
+venv/
+
+# Archivos de Bytecode y Cache de Python
+__pycache__/
+*.pyc
+
+# Base de datos
+*.sqlite3
+db.sqlite3
+
+# Archivos de configuración y secretos
+.env
+*.env
+
+# Archivos estáticos y de medios
+staticfiles/
+media/
+
+# Archivos de Logs
+logs/
+*.log
+
+# Archivos de configuración de IDEs
+.vscode/
+.idea/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de testing
+.coverage
+
+# Archivos de configuración y secretos de docker
+Dockerfile
