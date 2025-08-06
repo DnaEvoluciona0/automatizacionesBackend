@@ -39,4 +39,4 @@ class MaterialPI(models.Model):
 
     class Meta:
         unique_together = ('producto', 'insumo')
-        db_table = '"produccionlogistica"."materialPI"'
+        db_table = '"produccionlogistica"."materialpi"'

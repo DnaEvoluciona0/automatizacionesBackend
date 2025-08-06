@@ -37,7 +37,7 @@ class VentasPVA(models.Model):
     cantidad = models.BigIntegerField()
     
     class Meta:
-        db_table = '"produccionlogistica"."ventasPVA"'
+        db_table = '"produccionlogistica"."ventaspva"'
 
 #? Tabla de ventasPVH en el esquema de administracion
 class VentasPVH(models.Model):
@@ -51,7 +51,7 @@ class VentasPVH(models.Model):
     subtotal = models.DecimalField(decimal_places=2, max_digits=20)
     
     class Meta:
-        db_table = '"administracion"."ventasPVH"'
+        db_table = '"administracion"."ventaspvh"'
 
 #? Tabla de ventasPVA en el esquema de produccionLogistica
 class Caducidades(models.Model):
