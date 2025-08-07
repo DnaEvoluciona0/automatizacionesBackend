@@ -248,8 +248,7 @@ def createNewProductsFromOdoo(request):
     try:     
         #Traer los productos que existen de odoo        
         productsOdoo = get_newproducts()
-
-        if productsOdoo['message'] == "success":
+        if productsOdoo['status'] == "success":
 
             response = insertProducts(productsOdoo)
 
