@@ -3,7 +3,7 @@ version: '3.8'
 services:
   web:
     build: .
-    command: gunicorn automatizacionesDna.wsgi:application --bind 0.0.0.0:8000
+    command: gunicorn automatizacionesDna.wsgi:application --bind 0.0.0.0:8000 --timeout 1800
     volumes:
       - static_volume:/appReportes/staticfiles
     ports:
