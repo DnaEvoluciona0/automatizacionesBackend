@@ -59,7 +59,7 @@ def insertInputs(inputs):
                     maxActual = insumo.get('maxActual'),
                     minActual = insumo.get('minActual'),
                     existenciaActual = insumo.get('existenciaActual'),
-                    marca = marca[1],
+                    marca = marca[1] if marca else '',
                     categoria = categoria[1],
                     proveedor = proveedorFinal,
                 ) 
@@ -96,8 +96,9 @@ def pullInsumosOdoo(request):
         insumosOdoo = get_all_insumos()
 
         if insumosOdoo['status'] == 'success':
+            
             response = insertInputs(insumosOdoo)
-
+            
             if response['status'] == "success":
                 return JsonResponse({
                     'status' : 'success',
