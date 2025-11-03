@@ -37,11 +37,27 @@ def get_allClients():
     
     #Función try para obteners a todos lo clientes
     try:
+        #Obtener todos los clientes que aparecen en los invoices
+        partner_invoice = conn.models.execute_kw(
+            conn.db, conn.uid, conn.password, 
+            'account.move', 'read_group', 
+            [[
+                ('state', '=', 'posted'), 
+                '|', ('move_type', '=', 'out_invoice'), ('move_type', '=', 'out_refund'), 
+                ('branch_id', 'not ilike', 'STUDIO'), 
+                ('branch_id', 'not ilike', 'TORRE'),
+                ('team_id', 'not ilike', 'STUDIO 105'), 
+                '|', '|', ('name', 'ilike', 'INV/'), ('name', 'ilike', 'MUEST/'), ('name', 'ilike', 'BONIF/')
+            ],['partner_id'],['partner_id']]
+        )
+        
+        partner_ids = [group['partner_id'][0] for group in partner_invoice]
+        
         #Obtener a todos los clientes que cumplan con las condiciones
         res_partner = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'res.partner', 'search_read', 
-            [[['invoice_ids', '!=', False], '|', ['active', '=', True], ['active', '=', False]]],
+            [[('id', 'in', partner_ids), '|', ('active', '=', True), ('active', '=', False)]],
             { 'fields' : ['name', 'city', 'state_id', 'country_id']}
         )
         
@@ -91,11 +107,31 @@ def get_newClients():
         #Obtiene el dia anterior al que es hoy
         lastDay = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
         
-        #Busca en odoo los clientes que cumplan con las condiciones
+        #Obtener todos los clientes que aparecen en los invoices
+        partner_invoice = conn.models.execute_kw(
+            conn.db, conn.uid, conn.password, 
+            'account.move', 'read_group', 
+            [[
+                ('state', '=', 'posted'), 
+                '|', ('move_type', '=', 'out_invoice'), ('move_type', '=', 'out_refund'), 
+                ('branch_id', 'not ilike', 'STUDIO'), 
+                ('branch_id', 'not ilike', 'TORRE'),
+                ('team_id', 'not ilike', 'STUDIO 105'), 
+                '|', '|', ('name', 'ilike', 'INV/'), ('name', 'ilike', 'MUEST/'), ('name', 'ilike', 'BONIF/')
+            ],['partner_id'],['partner_id']]
+        )
+        
+        partner_ids = [group['partner_id'][0] for group in partner_invoice]
+        
+        #Obtener a todos los clientes que cumplan con las condiciones
         res_partner = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'res.partner', 'search_read', 
-            [[['create_date', '>=', lastDay], '|', ['active', '=', True], ['active', '=', False]]],
+            [[
+                ('write_date', '>=', lastDay),
+                ('id', 'in', partner_ids), 
+                '|', ('active', '=', True), ('active', '=', False)
+            ]],
             { 'fields' : ['name', 'city', 'state_id', 'country_id']}
         )
         
@@ -115,7 +151,7 @@ def get_newClients():
 
 
 # --------------------------------------------------------------------------------------------------
-# * Función: update_Clients
+# * Función: get_updateClients
 # * Descripción: Obtiene todos los clientes que se hayan actualizado desde hace un día y actualiza sus registros
 #
 # ! Parámetros:
@@ -133,7 +169,7 @@ def get_newClients():
 #   - Caso error: 
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # --------------------------------------------------------------------------------------------------
-def update_Clients():
+def get_updateClients():
     #!Determinamos que haya algna conexión con Odoo
     if not conn.models:
         return ({
@@ -146,11 +182,31 @@ def update_Clients():
         #Obtiene el dia anterior al que es hoy
         lastDay = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
         
-        #Busca en odoo los clientes que cumplan con las condiciones
+        #Obtener todos los clientes que aparecen en los invoices
+        partner_invoice = conn.models.execute_kw(
+            conn.db, conn.uid, conn.password, 
+            'account.move', 'read_group', 
+            [[
+                ('state', '=', 'posted'), 
+                '|', ('move_type', '=', 'out_invoice'), ('move_type', '=', 'out_refund'), 
+                ('branch_id', 'not ilike', 'STUDIO'), 
+                ('branch_id', 'not ilike', 'TORRE'),
+                ('team_id', 'not ilike', 'STUDIO 105'), 
+                '|', '|', ('name', 'ilike', 'INV/'), ('name', 'ilike', 'MUEST/'), ('name', 'ilike', 'BONIF/')
+            ],['partner_id'],['partner_id']]
+        )
+        
+        partner_ids = [group['partner_id'][0] for group in partner_invoice]
+        
+        #Obtener a todos los clientes que cumplan con las condiciones
         res_partner = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'res.partner', 'search_read', 
-            [[['write_date', '>=', lastDay], ['invoice_ids', '!=', False], '|', ['active', '=', True], ['active', '=', False]]],
+            [[
+                ('write_date', '>=', lastDay),
+                ('id', 'in', partner_ids), 
+                '|', ('active', '=', True), ('active', '=', False)
+            ]],
             { 'fields' : ['name', 'city', 'state_id', 'country_id']}
         )
         
@@ -170,7 +226,7 @@ def update_Clients():
 
 
 # --------------------------------------------------------------------------------------------------
-# * Función: pullClientsExcel
+# * Función: get_ClientsExcel
 # * Descripción: Obtiene todos los clientes del archivo contapqDB en la hoja de clientes
 #
 # ! Parámetros:
@@ -187,7 +243,7 @@ def update_Clients():
 #   - Caso error: 
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # --------------------------------------------------------------------------------------------------  
-def pullClientsExcel(idsclientes):
+def get_clientsExcel(idsclientes):
     #!Determinamos que haya algna conexión con Odoo
     if not conn.models:
         return ({

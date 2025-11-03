@@ -1,5 +1,5 @@
 from django.db import models
-from unidades.produccionLogistica.maxMin.models import Insumos, Productos
+from unidades.produccionLogistica.maxMin.models import Productos
 
 #? Tabla de clientes en el esquema de administracion
 class Clientes(models.Model):
@@ -18,7 +18,7 @@ class Clientes(models.Model):
 class Ventas(models.Model):
     idVenta = models.CharField(max_length=20, primary_key=True)
     fecha = models.DateTimeField()
-    idCliente = models.ForeignKey(Clientes, related_name="ventasCliente", on_delete=models.CASCADE)
+    cliente = models.ForeignKey(Clientes, related_name="ventasCliente", on_delete=models.CASCADE)
     paisVenta = models.CharField(max_length=100)
     estadoVenta = models.CharField(max_length=100)
     ciudadVenta = models.CharField(max_length=200)
@@ -32,8 +32,7 @@ class Ventas(models.Model):
 #? Tabla de ventasPVA en el esquema de produccionLogistica
 class VentasPVA(models.Model):
     fecha = models.DateTimeField()
-    idProducto = models.ForeignKey(Productos, related_name="ventasPVProducto", on_delete=models.CASCADE, null=True)
-    idInsumo = models.ForeignKey(Insumos, related_name="ventasPVInsumos", on_delete=models.CASCADE, null=True)
+    producto = models.ForeignKey(Productos, related_name="ventasPVProducto", on_delete=models.CASCADE, null=True)
     cantidad = models.BigIntegerField()
     
     class Meta:
@@ -41,7 +40,7 @@ class VentasPVA(models.Model):
 
 #? Tabla de ventasPVH en el esquema de administracion
 class VentasPVH(models.Model):
-    idVenta = models.ForeignKey(Ventas, related_name="ventasPVVenta", on_delete=models.CASCADE)
+    venta = models.ForeignKey(Ventas, related_name="ventasPVVenta", on_delete=models.CASCADE)
     nombre = models.CharField(max_length=100)
     sku = models.CharField(max_length=20)
     marca = models.CharField(max_length=50)
@@ -57,7 +56,7 @@ class VentasPVH(models.Model):
 class Caducidades(models.Model):
     fechaCaducidad = models.DateField()
     cantidad = models.IntegerField()
-    productoId = models.ForeignKey(Productos, related_name="productoCaducidad", on_delete=models.CASCADE)
+    producto = models.ForeignKey(Productos, related_name="productoCaducidad", on_delete=models.CASCADE)
     
     class Meta:
         db_table = '"produccionlogistica"."caducidades"'

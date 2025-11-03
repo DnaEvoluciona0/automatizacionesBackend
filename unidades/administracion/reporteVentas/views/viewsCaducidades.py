@@ -18,23 +18,45 @@ from datetime import datetime
 #
 # --------------------------------------------------------------------------------------------------
 def insertCaducidades(productos, caducidades):
+    
+    caducidadesPSQL = Caducidades.objects.all().values_list('id', flat=True)
+    error = 0
     newCaducidad=0
     for caducidad in caducidades:
-        if caducidad['product_id'][0] in productos:
+        if caducidad['product_id'][0] in productos and caducidad['id'] not in caducidadesPSQL:
             #Evita que caducidades que no sean una fecha se agreguen a la base de datos
             try:
                 #Convierte el nombre en una fecha válida
                 fecha = datetime.strptime(caducidad['name'].strip().replace('–', '-').replace('—', '-').replace('‑', '-'), "%d-%m-%Y")
+                productoObj = Productos.objects.get(idProducto=caducidad['product_id'][0])
                 #Inserta la informacion en la tabla Caducidades
                 Caducidades.objects.create(
                     id=caducidad['id'],
                     fechaCaducidad = fecha,
                     cantidad = caducidad['product_qty'],
-                    productoId_id = caducidad['product_id'][0]
+                    producto = productoObj
                 )
                 newCaducidad=newCaducidad+1
             except:
                 pass
+                
+        if caducidad['product_id'][0] not in productos:
+            try:
+                #Convierte el nombre en una fecha válida
+                skuP = caducidad['product_id'][1].split("]")[0].replace("[", "")
+                fecha = datetime.strptime(caducidad['name'].strip().replace('–', '-').replace('—', '-').replace('‑', '-'), "%d-%m-%Y")
+                productoObj = Productos.objects.get(sku=skuP)
+                #Inserta la informacion en la tabla Caducidades
+                Caducidades.objects.create(
+                    id=caducidad['id'],
+                    fechaCaducidad = fecha,
+                    cantidad = caducidad['product_qty'],
+                    producto = productoObj
+                )
+                newCaducidad=newCaducidad+1
+            except Exception as e:
+                pass
+            
     return({
         'status': 'success',
         'message': newCaducidad
@@ -59,7 +81,7 @@ def insertCaducidades(productos, caducidades):
 def pullCaducidadesOdoo(request):
     try:
         #Obtiene el id de todos los productos que hay en Postgres
-        productsPSQL = Productos.objects.all().values_list('id', flat=True)
+        productsPSQL = Productos.objects.all().values_list('idProducto', flat=True)
         
         #Obtiene todas las caducidades que hay en Odoo
         caducidadesOdoo=ctrCaducidades.get_allCaducidades()
@@ -72,7 +94,7 @@ def pullCaducidadesOdoo(request):
                 message = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se registraron {message}, nuevas caducidades'
+                    'message' : f'Se registraron {message} caducidades de {len(caducidadesOdoo['caducidades'])}'
                 })
             return JsonResponse({
                     'status'  : 'error',
@@ -110,7 +132,7 @@ def pullCaducidadesOdoo(request):
 def createCaducidadesOdoo(request):
     try:
         #Obtiene el id de todos los productos que hay en Postgres
-        productsPSQL = Productos.objects.all().values_list('id', flat=True)
+        productsPSQL = Productos.objects.all().values_list('idProducto', flat=True)
         
         #Obtiene todas las caducidades que hay en Odoo
         caducidadesOdoo=ctrCaducidades.get_newCaducidades()
@@ -123,7 +145,7 @@ def createCaducidadesOdoo(request):
                 message = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se registraron {message}, nuevas caducidades'
+                    'message' : f'Se registraron {message} nuevas caducidades de {len(caducidadesOdoo['caducidades'])}'
                 })
             return JsonResponse({
                     'status'  : 'error',
@@ -159,10 +181,7 @@ def createCaducidadesOdoo(request):
 #           La función retorna todas las caducidades que se hayan actualizado en Odoo
 # --------------------------------------------------------------------------------------------------
 def updateCaducidadesOdoo(request):
-    try:
-        #Obtiene el id de todos los productos que hay en Postgres
-        productsPSQL = Productos.objects.all().values_list('id', flat=True)
-        
+    try:        
         #Obtiene todas las caducidades que hay en Odoo
         caducidadesOdoo=ctrCaducidades.update_Caducidades()
         
@@ -170,22 +189,20 @@ def updateCaducidadesOdoo(request):
             caducidades=0
             for caducidad in caducidadesOdoo['caducidades']:
                 try:
-                    #Verifica que el producto exista en Postgres
-                    if caducidad['product_id'][0] in productsPSQL:
-                        #Busca la caducidad mediante su id
-                        caducidadAct = Caducidades.objects.get(id=caducidad['id'])
-                        #Modifica los campos que necesitamos
-                        caducidadAct.cantidad=caducidad['product_qty']
-                        
-                        #guarda los cambios
-                        caducidadAct.save()
-                        caducidades=caducidades+1
+                    #Busca la caducidad mediante su id
+                    caducidadObj = Caducidades.objects.get(id=caducidad['id'])
+                    #Modifica los campos que necesitamos
+                    caducidadObj.cantidad=caducidad['product_qty']
+                    
+                    #guarda los cambios
+                    caducidadObj.save()
+                    caducidades=caducidades+1
                 except:
                     pass
                 
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Las caducidades modificados son: {caducidades}'
+                'message' : f'Se modificaron {caducidades} de {len(caducidadesOdoo['caducidades'])}'
             })
             
         else:

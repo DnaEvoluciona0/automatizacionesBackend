@@ -28,6 +28,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432" 
     environment:
       - POSTGRES_DB=${BASEDATOS}
       - POSTGRES_USER=${USUARIOBD}

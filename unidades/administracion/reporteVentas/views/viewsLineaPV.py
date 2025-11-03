@@ -1,5 +1,5 @@
 from unidades.administracion.reporteVentas.models import VentasPVH, VentasPVA
-from unidades.produccionLogistica.maxMin.models import Insumos, Productos
+from unidades.produccionLogistica.maxMin.models import Productos
 
 # --------------------------------------------------------------------------------------------------
 # * Función: insertLineaVentaOdoo
@@ -22,92 +22,67 @@ from unidades.produccionLogistica.maxMin.models import Insumos, Productos
 #     - Si "move_type" es igual a "out_invoice", significa que es una venta completada.
 #     - Si "move_type" es igual a "out_refund", significa que es una nota de crédito.
 # --------------------------------------------------------------------------------------------------
-def insertLineaVentaOdoo(productos, idVenta, fechaVenta, productosPSQL, insumosPSQL):
-    try:
-        #Para cada producto lo intentara registrar en VentasPVH y Ventas PVA
-        for producto in productos:
-            if producto['name']!=False or producto['product_id']!=False:
+def insertLineaVentaOdoo(productos, idVenta, fechaVenta, productosPSQL):
+    #Para cada producto lo intentara registrar en VentasPVH y Ventas PVA
+    for producto in productos:
+        try:
+            if producto['product_id']:
                 #Obtiene el nombre del producto el limpio
-                nombreP = producto['name'] if producto['name'].find("]") == -1 else producto['name'][producto['name'].find("]")+2:]
-                #Obtiene el SKU del producto
-                skuP = "" if producto['name'].find("]") == -1 else producto['name'][1:producto['name'].find("]")]
-                
-                if len(nombreP) <= 100:
-                    #Lo registra en ventasPVH  
-                    VentasPVH.objects.create(
-                        cantidad        = producto['quantity'],
-                        precioUnitario  = producto['price_unit'],
-                        subtotal        = producto['price_subtotal'],
-                        marca           = producto['x_studio_marca'] if producto['x_studio_marca'] else "",
-                        categoria       = producto['x_studio_related_field_e1jP7'] if producto['x_studio_related_field_e1jP7'] else "",
-                        idVenta_id      = idVenta,
-                        nombre          = nombreP,
-                        sku             = skuP
-                    )
+                try:
+                    productoObj = Productos.objects.get(idProducto=producto['product_id'][0])
+                except:
+                    try:
+                        sku = "" if producto['name'].find("]") == -1 else producto['name'][1:producto['name'].find("]")]
+                        productoObj = Productos.objects.get(sku=sku)
+                    except Exception as e:
+                        print("No se encontro", e, producto)
+                if productoObj:
+                    #Lo registra en ventasPVH
+                    try:
+                        VentasPVH.objects.create(
+                            cantidad        = producto['quantity'],
+                            precioUnitario  = producto['price_unit'],
+                            subtotal        = producto['price_subtotal'],
+                            marca           = productoObj.marca,
+                            categoria       = productoObj.categoria,
+                            venta           = idVenta,
+                            nombre          = productoObj.nombre,
+                            sku             = productoObj.sku
+                        )
+                    except Exception as e:
+                        print("VentasPVH", e, producto)
                     
-                    #Si el producto se encuentra en la lista de productos o de insumos en Postgres, entra en este if
-                    if producto['product_id'] != False:
-                        if producto['product_id'][0] in productosPSQL or producto['product_id'][0] in insumosPSQL:
-                            #Intentar registrarlo como producto
-                            try:
-                                try:
-                                    #Si el producto si tiene un id de producto lo registra
-                                    VentasPVA.objects.create(
-                                        fecha           = fechaVenta,
-                                        cantidad        = producto['quantity'],
-                                        idProducto_id   = producto['product_id'][0]
-                                    )
-                                except:
-                                    #Si el producto no tenia un id de producto lo busca con base a su SKU y obtiene el id, este esta principalmente pensado para los productos de Excel/contpaq
-                                    posibleID=Productos.objects.get(sku=skuP)
-                                    VentasPVA.objects.create(
-                                        fecha           = fechaVenta,
-                                        cantidad        = producto['quantity'],
-                                        idProducto_id   = posibleID.id
-                                    )
-                            #Intentar registrarlo como Insumo
-                            except:
-                                try:
-                                    #Si el insumo si tiene un id de producto lo registra
-                                    VentasPVA.objects.create(
-                                        fecha           = fechaVenta,
-                                        cantidad        = producto['quantity'],
-                                        idInsumo_id     = producto['product_id'][0]
-                                    )
-                                except:
-                                    #Si el insumo no tenia un id de producto lo busca con base a su SKU y obtiene el id, este esta principalmente pensado para los insumos de Excel/contpaq
-                                    posibleID=Insumos.objects.get(sku=skuP)
-                                    VentasPVA.objects.create(
-                                        fecha           = fechaVenta,
-                                        cantidad        = producto['quantity'],
-                                        idInsumo_id     = posibleID.id
-                                    )
-                        else:
-                            try:
-                                try:
-                                    #Si el producto no tenia un id de producto lo busca con base a su SKU y obtiene el id, este esta principalmente pensado para los productos de Excel/contpaq
-                                    posibleID=Productos.objects.get(sku=skuP)
-                                    VentasPVA.objects.create(
-                                        fecha           = fechaVenta,
-                                        cantidad        = producto['quantity'],
-                                        idProducto_id   = posibleID.id
-                                    )
-                                except:
-                                    #Si el insumo no tenia un id de producto lo busca con base a su SKU y obtiene el id, este esta principalmente pensado para los insumos de Excel/contpaq
-                                    posibleID=Insumos.objects.get(sku=skuP)
-                                    VentasPVA.objects.create(
-                                        fecha           = fechaVenta,
-                                        cantidad        = producto['quantity'],
-                                        idInsumo_id     = posibleID.id
-                                    )
-                            except:
-                                pass
-        #Retorna un exito                
-        return({
-            'status'  : 'success',
-            'message' : f'Todos los productos han sido registrados'
-        })   
-        
-    except Exception as e:
-        pass
+                    try:
+                        VentasPVA.objects.create(
+                            fecha           = fechaVenta,
+                            cantidad        = producto['quantity'],
+                            producto        = productoObj
+                        )
+                    except Exception as e:
+                        print("VentasPVA", e, producto)
+                        
+            elif producto['product_id'] == False and (producto['price_subtotal'] != 0 or producto['price_unit'] != 0):
+                try:
+                    VentasPVH.objects.create(
+                            cantidad        = producto['quantity'],
+                            precioUnitario  = producto['price_unit'],
+                            subtotal        = producto['price_subtotal'],
+                            marca           = "",
+                            categoria       = "",
+                            venta           = idVenta,
+                            nombre          = "",
+                            sku             = ""
+                        )
+                except Exception as e:
+                        print("Ventas sin Id", e, producto)
+            else:
+                print("El precio es 0: ", producto)
+                
+        except Exception as e:
+            print("Error general: ", e, producto)
+    #Retorna un exito                
+    return({
+        'status'  : 'success',
+        'message' : f'Todos los productos han sido registrados'
+    })   
     

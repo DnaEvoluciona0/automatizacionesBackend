@@ -25,21 +25,24 @@ def insertClients(clients):
     for cliente in clients:
         #Si el id no esta en la base de datos lo agrega
         if cliente['id'] not in clientesPSQL:
-            #Asignamos la distribución de la información en sus respectivas variables
-            Clientes.objects.create(
-                idCliente           = cliente['id'],
-                nombre              = cliente['name'] if cliente['name']!=False else "",
-                ciudad              = cliente['city'] if cliente['city']!=False else "",
-                estado              = cliente['state_id'][1] if cliente['state_id']!=False else "",
-                pais                = cliente['country_id'][1] if cliente['country_id']!=False else "",
-                tipoCliente         = "Cliente Nuevo",
-                numTransacciones    = 0
-            )
-            newClientes=newClientes+1
+            try:
+                #Asignamos la distribución de la información en sus respectivas variables
+                Clientes.objects.create(
+                    idCliente           = cliente['id'],
+                    nombre              = cliente['name'] if cliente['name']!=False else "",
+                    ciudad              = cliente['city'] if cliente['city']!=False else "",
+                    estado              = cliente['state_id'][1] if cliente['state_id']!=False else "",
+                    pais                = cliente['country_id'][1] if cliente['country_id']!=False else "",
+                    tipoCliente         = "Cliente Nuevo",
+                    numTransacciones    = 0
+                )
+                newClientes=newClientes+1
+            except:
+                pass
     
     return ({
         'status'  : 'success',
-        'message' : f'Los clientes son: {newClientes}'
+        'message' : newClientes
     })
     
 
@@ -72,7 +75,7 @@ def pullClientesOdoo(request):
                 message = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {message} Clientes nuevos'
+                    'message' : f'Se han agregado correctamente {message} clientes de {len(clientesOdoo['clientes'])}'
                 })
             return JsonResponse({
                 'status'  : 'error',
@@ -120,7 +123,7 @@ def createClientesOdoo(request):
                 message = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {message} Clientes nuevos'
+                    'message' : f'Se han agregado correctamente {message} clientes nuevos de {len(clientesOdoo['clientes'])}'
                 })
             return JsonResponse({
                 'status'  : 'error',
@@ -158,7 +161,7 @@ def createClientesOdoo(request):
 def updateClientesOdoo(request):
     try:
         #Traer todos los clientes de Odoo que se actualizaron
-        clientesOdoo=ctrCliente.update_Clients()
+        clientesOdoo=ctrCliente.get_updateClients()
         
         if clientesOdoo['status'] == 'success':
             newClientes = 0
@@ -166,23 +169,23 @@ def updateClientesOdoo(request):
             for cliente in clientesOdoo['clientes']:
                 try:
                     #Busca el ID del cliente en Postgres
-                    clienteAct = Clientes.objects.get(idCliente=cliente['id'])
+                    clienteObj = Clientes.objects.get(idCliente=cliente['id'])
                     
                     #Cambia los valores de la Postgres por los nuevos valores que hay en odoo
-                    clienteAct.nombre              = cliente['name'] if cliente['name']!=False else ""
-                    clienteAct.ciudad              = cliente['city'] if cliente['city']!=False else ""
-                    clienteAct.estado              = cliente['state_id'][1] if cliente['state_id']!=False else ""
-                    clienteAct.pais                = cliente['country_id'][1] if cliente['country_id']!=False else ""
+                    clienteObj.nombre              = cliente['name'] if cliente['name']!=False else ""
+                    clienteObj.ciudad              = cliente['city'] if cliente['city']!=False else ""
+                    clienteObj.estado              = cliente['state_id'][1] if cliente['state_id']!=False else ""
+                    clienteObj.pais                = cliente['country_id'][1] if cliente['country_id']!=False else ""
                     
                     #Guarda los cambios de cliente
-                    clienteAct.save()
+                    clienteObj.save()
                     newClientes=newClientes+1
                 except:
                     pass
             
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Los clientes modificados son: {newClientes}'
+                'message' : f'Se han modificados {newClientes} clientes de {len(clientesOdoo['clientes'])}'
             })
         else:
             return JsonResponse({
@@ -212,11 +215,11 @@ def updateClientesOdoo(request):
 #     - Caso success:
 #           La función insertClients retorna mensaje success y envía mensaje con la cantidad de clientes agregados
 # --------------------------------------------------------------------------------------------------
-def createClientesExcel(request):
+def pullClientesExcel(request):
     try:
         clientesPSQL = Clientes.objects.all().values_list('idCliente', flat=True)
         #Traer todos los clientes de Odoo
-        clientesOdoo=ctrCliente.pullClientsExcel(clientesPSQL)
+        clientesOdoo=ctrCliente.get_clientsExcel(clientesPSQL)
         
         if clientesOdoo['status'] == 'success':
             
@@ -226,7 +229,7 @@ def createClientesExcel(request):
                 message = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {message} Clientes nuevos'
+                    'message' : f'Se han agregado correctamente {message} clientes Excel de {len(clientesOdoo['clientes'])}'
                 })
             return JsonResponse({
                 'status'  : 'error',

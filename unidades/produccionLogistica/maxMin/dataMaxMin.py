@@ -3,7 +3,7 @@ from django.db.models import F, ExpressionWrapper, FloatField, Subquery, OuterRe
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-from unidades.produccionLogistica.maxMin.models import Insumos, MaterialPI
+from unidades.produccionLogistica.maxMin.models import MaterialPI
 from unidades.administracion.reporteVentas.models import VentasPVA
 from unidades.produccionLogistica.maxMin.views.viewInsumo import updateMaxMin
 

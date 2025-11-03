@@ -1,7 +1,6 @@
 from django.http import JsonResponse
-from unidades.produccionLogistica.maxMin.models import MaterialPI, Productos, Insumos
-from conexiones.conectionOdoo import OdooAPI
-from unidades.produccionLogistica.maxMin.controllers.ctrMatrerialPI import getInsumoByProduct
+from unidades.produccionLogistica.maxMin.models import MaterialPI, Productos
+from unidades.produccionLogistica.maxMin.controllers import ctrMaterialPI
 
 # Create your views here.
 
@@ -32,51 +31,35 @@ def getMaterialsPIPSQL(request):
 def pullMaterialPi(request):
 
     try:
-        result = getInsumoByProduct()
+        result = ctrMaterialPI.getInsumoByProduct()
 
         if result['status'] == 'success':
 
             MaterialPI.objects.all().delete()
 
-            cantidad = 0
-            for material in result['message']:
-                productSKU = material.get('product')[1].split(']')[0]
-                productSKU = productSKU.split('[')[1]
-                materialSKU = material.get('material')[1].split(']')[0]
-                materialSKU = materialSKU.split('[')[1]
-
-                try: 
-                    instanceProduct = Productos.objects.get(sku=f'{productSKU}')
-                    
-                except Productos.DoesNotExist:
-                    continue
-
+            cantidadPI = 0
+            for material in result['materiales']:
                 try:
-                    instanceInsumo = Insumos.objects.get(sku=f'{materialSKU}')
-                except Insumos.DoesNotExist:
-                    continue
-
-                tupleMaterial = (Productos.objects.only('id').get(sku=productSKU).id, material.get('material')[0])
-
-                if tupleMaterial:
-                    try:
-                        if instanceProduct and instanceInsumo:
-                            cantidad += 1
-                            materialPI = MaterialPI.objects.create(
-                                producto = instanceProduct,
-                                insumo = instanceInsumo,
-                                cantidad = material.get('qty')
-                            )
-                    except:
-                        print(f'Error al insertar el material {materialSKU} en el producto {productSKU}')
-                        continue;
+                    padreId = Productos.objects.get(idProductoTmp=material['parent_product_tmpl_id'][0])
+                    
+                    hijoId = Productos.objects.get(idProductoTmp=material['product_tmpl_id'][0])
+                    
+                    createMaterialPI = MaterialPI.objects.create(
+                        idPadre = padreId,
+                        idHijo = hijoId,
+                        cantidad = material['product_qty']
+                    )
+                    cantidadPI+=1
+                except:
+                    pass
+                    
             return JsonResponse({
                 'status' : 'success',
-                'message' : f'Se han cargado {cantidad} materiales de productos.'
+                'message' : f'Se han cargado {cantidadPI} materiales de productos de {len(result['materiales'])}'
             })
         return JsonResponse({
             'status'  : 'error',
-            'message' : result['message']
+            'message' : result['materiales']
         })
 
     except Exception as e:

@@ -53,7 +53,13 @@ def get_allSales():
         order_sale = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'account.move', 'search_read', 
-            [[['team_id', 'not ilike', 'STUDIO 105'], ['state', '=', 'posted'], '|', ['move_type', '=', 'out_invoice'], ['move_type', '=', 'out_refund'], ['branch_id', 'not ilike', 'STUDIO'], ['branch_id', 'not ilike', 'TORRE'], '|', '|', ['name', 'ilike', 'INV/'], ['name', 'ilike', 'MUEST/'], ['name', 'ilike', 'BONIF/']]],
+            [[
+                ('team_id', 'not ilike', 'STUDIO 105'), 
+                ('state', '=', 'posted'), 
+                '|', ('move_type', '=', 'out_invoice'), ('move_type', '=', 'out_refund'), 
+                ('branch_id', 'not ilike', 'STUDIO'), ('branch_id', 'not ilike', 'TORRE'), 
+                '|', '|', ('name', 'ilike', 'INV/'), ('name', 'ilike', 'MUEST/'), ('name', 'ilike', 'BONIF/')
+            ]],
             { 'fields' : ['name', 'invoice_date', 'partner_id', 'invoice_user_id', 'partner_shipping_id', 'branch_id', 'amount_total_signed', 'move_type', 'team_id']}
         )
                 
@@ -72,9 +78,13 @@ def get_allSales():
         all_product_line = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'account.move.line', 'search_read', 
-            [[['move_id', 'in', ordersID], '|', '|', ['account_type', '=', 'income'], ['account_type', '=', 'expense'], ['account_type', '=', False]]],
-            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'x_studio_marca', 'x_studio_related_field_e1jP7', 'move_id', 'account_type']}
+            [[
+                ('move_id', 'in', ordersID), 
+                '|', '|', ('account_type', '=', 'income'), ('account_type', '=', 'expense'), ('account_type', '=', False)
+            ]],
+            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id']}
         )
+        print("Se obtuvieron:", len(all_product_line))
         
         #Las guarda todas en un objetos junto con el id de la factura como id principal para encontrarla
         for line in all_product_line:
@@ -85,13 +95,17 @@ def get_allSales():
             #Agrega los productos necesarios a esa misma propiedad
             if line['move_id'][0] in products_data:
                 products_data[line['move_id'][0]].append(line)
+                
+        print("Se formatearon", len(all_product_line))
         
         shipping_data={}
         #Busca en los contactos la información de cada uno
         all_shippings=conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'res.partner', 'search_read', 
-            [[['id', 'in', shippingID]]],
+            [[
+                ('id', 'in', shippingID)
+                ]],
             { 'fields' : ['city', 'state_id', 'country_id',]}
         )
         
@@ -175,8 +189,15 @@ def get_newSales():
         order_sale = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'account.move', 'search_read', 
-            [[['create_date', '>=', lastDay], ['state', '=', 'posted'], '|', ['move_type', '=', 'out_invoice'], ['move_type', '=', 'out_refund'], ['branch_id', 'not ilike', 'STUDIO'], ['branch_id', 'not ilike', 'TORRE'], '|', '|', ['name', 'ilike', 'INV/'], ['name', 'ilike', 'MUEST/'], ['name', 'ilike', 'BONIF/']]],
-            { 'fields' : ['name', 'invoice_date', 'partner_id', 'invoice_user_id', 'partner_shipping_id', 'branch_id', 'amount_total_signed', 'move_type']}
+            [[
+                ('create_date', '>=', lastDay),
+                ('team_id', 'not ilike', 'STUDIO 105'), 
+                ('state', '=', 'posted'), 
+                '|', ('move_type', '=', 'out_invoice'), ('move_type', '=', 'out_refund'), 
+                ('branch_id', 'not ilike', 'STUDIO'), ('branch_id', 'not ilike', 'TORRE'), 
+                '|', '|', ('name', 'ilike', 'INV/'), ('name', 'ilike', 'MUEST/'), ('name', 'ilike', 'BONIF/')
+            ]],
+            { 'fields' : ['name', 'invoice_date', 'partner_id', 'invoice_user_id', 'partner_shipping_id', 'branch_id', 'amount_total_signed', 'move_type', 'team_id']}
         )
                 
         #Lista de Ids que se buscaran
@@ -194,8 +215,12 @@ def get_newSales():
         all_product_line = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'account.move.line', 'search_read', 
-            [[['move_id', 'in', ordersID], '|', '|', ['account_type', '=', 'income'], ['account_type', '=', 'expense'], ['account_type', '=', False]]],
-            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'x_studio_marca', 'x_studio_related_field_e1jP7', 'move_id']}
+            [[
+                ('move_id', 'in', ordersID),
+                ('product_id', '!=', False),
+                '|', '|', ('account_type', '=', 'income'), ('account_type', '=', 'expense'), ('account_type', '=', False)
+            ]],
+            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id']}
         )
         
         #Las guarda todas en un objetos junto con el id de la factura como id principal para encontrarla
@@ -204,7 +229,7 @@ def get_newSales():
             if line['move_id'][0] not in products_data:
                 products_data[line['move_id'][0]]=[]
             
-            #Agrega los productos necesarios a esa misma propiedad    
+            #Agrega los productos necesarios a esa misma propiedad
             if line['move_id'][0] in products_data:
                 products_data[line['move_id'][0]].append(line)
         
@@ -213,7 +238,9 @@ def get_newSales():
         all_shippings=conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'res.partner', 'search_read', 
-            [[['id', 'in', shippingID]]],
+            [[
+                ('id', 'in', shippingID)
+                ]],
             { 'fields' : ['city', 'state_id', 'country_id',]}
         )
         
@@ -270,7 +297,7 @@ def get_newSales():
 #   - Caso error: 
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # -------------------------------------------------------------------------------------------------- 
-def pullVentasExcel():
+def get_VentasExcel():
     #!Determinamos que haya algna conexión con Odoo
     if not conn.models:
         return ({
@@ -291,7 +318,10 @@ def pullVentasExcel():
         direccion = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'res.partner', 'search_read', 
-            [[['id', 'in', clients_ids], '|', ['active', '=', True], ['active', '=', False]]],
+            [[
+                ('id', 'in', clients_ids), 
+                '|', ('active', '=', True), ('active', '=', False)
+            ]],
             { 'fields' : ['city', 'state_id', 'country_id']}
         )
         
@@ -316,9 +346,7 @@ def pullVentasExcel():
                     'product_id': str(index), 
                     'quantity': prod['Cantidad facturada'], 
                     'price_unit': prod['Precio unitario'], 
-                    'price_subtotal': prod['Total'], 
-                    'x_studio_marca': prod['Marca'], 
-                    'x_studio_related_field_e1jP7': prod['categoria'], 
+                    'price_subtotal': prod['Total'],
                     'move_id': prod['idVenta']
                 })
                 total=total+prod['Total']

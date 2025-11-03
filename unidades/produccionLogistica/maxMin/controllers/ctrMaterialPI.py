@@ -24,33 +24,26 @@ conOdoo = OdooAPI()
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # --------------------------------------------------------------------------------------------------
 def getInsumoByProduct():
+    #!Determinamos si existe conexión con odoo
     if not conOdoo.models:
         return ({
             'status'  : 'error',
             'message' : 'Error en la conexión con Odoo, no hay conexión Activa'
         })
 
+    #Función try para traer todos los materiales
     try:
-        finalMaterial = []
         # Obtener las reglas de materiales en el modelo mrp.bom.line
         mrp_bom_line = conOdoo.models.execute_kw(
             conOdoo.db, conOdoo.uid, conOdoo.password,
             'mrp.bom.line', 'search_read',
             [[]],
-            {  'fields' : ['product_id', 'product_qty', 'bom_id'] }
+            {  'fields' : ['product_tmpl_id', 'parent_product_tmpl_id', 'product_qty'] }
         )
-
-        #Por cada dato encontrado o agrega en un array de salida
-        for item in mrp_bom_line:
-            finalMaterial.append({
-                'product' : item['bom_id'],
-                'material' : item['product_id'],
-                'qty' : item['product_qty'],
-            })
 
         return ({
             'status'  : 'success',
-            'message' : finalMaterial
+            'materiales' : mrp_bom_line
         })
 
     except xmlrpc.client.Fault as e:

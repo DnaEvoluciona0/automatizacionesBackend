@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from unidades.administracion.reporteVentas.models import Ventas, Clientes
 from unidades.administracion.reporteVentas.views.viewsLineaPV import insertLineaVentaOdoo
 from unidades.administracion.reporteVentas.controllers import ctrVentas
-from unidades.produccionLogistica.maxMin.models import Insumos, Productos
+from unidades.produccionLogistica.maxMin.models import Productos
 
 # --------------------------------------------------------------------------------------------------
 # * Función: insertVentas
@@ -22,53 +22,55 @@ from unidades.produccionLogistica.maxMin.models import Insumos, Productos
 def insertVentas(ventas):
     #Llamar a las ventas, productos e insumos ya existentes en Postgres
     ventasPSQL = Ventas.objects.all().values_list('idVenta', flat=True)
-    productosPSQL = Productos.objects.all().values_list('id', flat=True)
-    insumosPSQL = Insumos.objects.all().values_list('id', flat=True)
+    productosPSQL = Productos.objects.all().values_list('idProductoTmp', flat=True)
     
     newVentas = 0
     newNota = 0
     
+    contador=0
+
     for venta in ventas:
         if venta['name'] not in ventasPSQL:
+            contador+=len(venta['productsLines'])
             #Asignamos la distribución de la información en sus respectivas variables
             try:
-                Ventas.objects.create(
-                idVenta         = venta['name'],
-                fecha           = venta['invoice_date'],
-                ciudadVenta     = venta['city'],
-                estadoVenta     = venta['state_id'],
-                paisVenta       = venta['country_id'],
-                unidad          = venta['branch_id'][1] if venta['branch_id'] else "",
-                vendedor        = venta['invoice_user_id'][1],
-                total           = venta['amount_total_signed'],
-                idCliente_id    = venta['partner_id'][0]
+                #Obtenemos al cliente
+                clienteObj = Clientes.objects.get(idCliente = venta['partner_id'][0])
+                ventaID=Ventas.objects.create(
+                    idVenta         = venta['name'],
+                    fecha           = venta['invoice_date'],
+                    ciudadVenta     = venta['city'],
+                    estadoVenta     = venta['state_id'],
+                    paisVenta       = venta['country_id'],
+                    unidad          = venta['branch_id'][1] if venta['branch_id'] else "",
+                    vendedor        = venta['invoice_user_id'][1],
+                    total           = venta['amount_total_signed'],
+                    cliente         = clienteObj
                 )
                 #Llamamos a pull linea ventas para registrar todos los productos en Postgres
-                insertLineaVentaOdoo(venta['productsLines'], venta['name'], venta['invoice_date'], productosPSQL, insumosPSQL)
+                insertLineaVentaOdoo(venta['productsLines'], ventaID, venta['invoice_date'], productosPSQL)
                 #Factura
                 if venta['move_type'] == 'out_invoice':
                     newVentas=newVentas+1
                 #Nota de credito
                 if venta['move_type'] == 'out_refund':
                     newNota=newNota+1
-                try:
-                    #Obtenemos al cliente
-                    cliente = Clientes.objects.get(idCliente = venta['partner_id'][0])
-                    #Sumamos una nueva venta en el cliente
-                    cliente.numTransacciones=cliente.numTransacciones+1
-                    if cliente.numTransacciones >= 2:
-                        cliente.tipoCliente = 'Cartera'
-                    else:
-                        cliente.tipoCliente = 'Nuevo Cliente'
-                    #Guardamos los cambios
-                    cliente.save()
-                except:
-                    pass
-            except:
-                pass
+                    
+                #Sumamos una nueva venta en el cliente
+                clienteObj.numTransacciones+=1
+                if clienteObj.numTransacciones >= 2:
+                    clienteObj.tipoCliente = 'Cartera'
+                else:
+                    clienteObj.tipoCliente = 'Cliente Nuevo'
+                #Guardamos los cambios
+                """clienteObj.save()"""
+                
+            except Exception as e:
+                print("Ventas", e, venta)
+    print("lineas colocadas", contador)
     return({
         'status'  : 'success',
-        'message' : f'{newVentas} ventas nuevas y {newNota} nuevas notas de credito'
+        'message' : [newVentas, newNota, (newVentas + newNota)]
     })
                     
                     
@@ -97,11 +99,13 @@ def pullVentasOdoo(request):
             
             #Llama a insertVentas y le envia todos las ventas que obtuvo de Odoo
             response=insertVentas(ventasOdoo['ventas'])
+            
             if response['status'] == "success":
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : response['message']
+                    'message' : f'Se han agregado correctamente {response['message'][0]} ventas, {response['message'][1]} notas de credito dando un total de {response['message'][2]} de {len(ventasOdoo['ventas'])}'
                 })
+                
             return JsonResponse({
                 'status'  : 'error',
                 'message' : response['message']
@@ -145,11 +149,13 @@ def createVentasOdoo(request):
             
             #Llama a insertVentas y le envia todos las ventas que obtuvo de Odoo
             response=insertVentas(ventasOdoo['ventas'])
+            
             if response['status'] == "success":
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : response['message']
+                    'message' : f'Se han agregado correctamente {response['message'][0]} ventas nuevas, {response['message'][1]} notas de credito nuevas dando un total de {response['message'][2]} de {len(ventasOdoo['ventas'])}'
                 })
+                
             return JsonResponse({
                 'status'  : 'error',
                 'message' : response['message']
@@ -183,21 +189,23 @@ def createVentasOdoo(request):
 #     - Caso success:
 #           La función insertarVentas retorna mensaje success y envía mensaje con la cantidad de facturas y notas de credito agregadas
 # --------------------------------------------------------------------------------------------------  
-def createSalesExcel(request):
+def pullVentasExcel(request):
     try:
         
         #Traer todos los clientes de Odoo
-        ventasOdoo=ctrVentas.pullVentasExcel()
+        ventasOdoo=ctrVentas.get_VentasExcel()
         
         if ventasOdoo['status'] == 'success':
             
             #Llama a insertVentas y le envia todos las ventas que obtuvo de Odoo
             response=insertVentas(ventasOdoo['ventas'])
+            
             if response['status'] == "success":
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : response['message']
+                    'message' : f'Se han agregado correctamente {response['message'][0]} ventas de Excel, {response['message'][1]} notas de credito de Excel dando un total de {response['message'][2]} de {len(ventasOdoo['ventas'])}'
                 })
+                
             return JsonResponse({
                 'status'  : 'error',
                 'message' : response['message']

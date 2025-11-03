@@ -1,20 +1,18 @@
 from django.http import JsonResponse
 
-from unidades.produccionLogistica.maxMin.models import Insumos
-from unidades.produccionLogistica.maxMin.controllers.crtInsumo import get_all_insumos, updateMaxMinOdoo, get_newInsumos
+from unidades.produccionLogistica.maxMin.models import Productos
+from unidades.produccionLogistica.maxMin.controllers import ctrInsumo
 
-
-# Create your views here.
 #? Consultas a Base de datos PostgreSql
 #* Controlador para obtener todos los insumos de la base de datos
 def getInsumosPSQL(request):
-    insumosPSQL = Insumos.objects.all().values(  'id', 'nombre', 'sku', 'marca', 'existenciaActual', 'maxActual', 'minActual'  )
+    insumosPSQL = Productos.objects.all().values(  'id', 'nombre', 'sku', 'marca', 'existenciaActual', 'maxActual', 'minActual'  )
     return JsonResponse(list(insumosPSQL), safe=False)
 
 
 
 # --------------------------------------------------------------------------------------------------
-# * Función: insertInputs
+# * Función: insertInsumos
 # * Descripción: Inserta INSUMOS en la base de datos PostgreSQL.
 #
 # ! Parámetros:
@@ -26,47 +24,54 @@ def getInsumosPSQL(request):
 #     1. El producto debe tener un SKU válido (no vacío).
 #     2. El producto no debe existir previamente en la base de datos PostgreSQL.
 # --------------------------------------------------------------------------------------------------
-def insertInputs(inputs):
+def insertInsumos(insumos):
     #Traemos los insumos dentro de postgreSQL
-    insumosPSQL = Insumos.objects.all().values_list('sku', flat=True)
+    insumosPSQL = Productos.objects.all().values_list('idProductoTmp', flat=True)
 
     #Añadimos las insumos a la base de datos PosgreSQL
-    new_insumos = []
+    new_insumos = 0
+    for insumo in insumos:
+        
+        if insumo['id'] not in insumosPSQL:
+            
+            sku = insumo['default_code'] if insumo['default_code'] else ""
+            marca = insumo['product_brand_id'][1] if insumo['product_brand_id'] else ""
+            categoria = insumo['categ_id'][1]
+            rutas = len(insumo['route_ids'])
 
-    for insumo in inputs['products']:
-        if insumo['sku']:
-            sku = insumo.get('sku', '').strip()
-            marca = insumo.get('marca')
-            categoria = insumo.get('categoria')
-
-            if sku and sku not in insumosPSQL:
-                new_insumos.append({
-                    'id' : insumo.get('id')
-                })
-
-                provider = len(insumo.get('proveedor'))
-                
-                if provider > 0:
-                    proveedor = insumo.get('proveedor')
-                    proveedorFinal = proveedor[0]['partner_id'][1]
+            if insumo['active']==False:
+                tipo = "DESCONTINUADO"
+            else:
+                if "MAQUILA" in categoria or "MT" in sku: 
+                    tipo = "MAQUILAS"
+                elif rutas > 0 and insumo['purchase_ok'] == True and insumo['active'] == True:
+                    tipo = "RESURTIBLE"
+                elif rutas == 0 or insumo['purchase_ok'] == False or insumo['active'] == False:
+                    tipo = "NO RESURTIBLE"
                 else:
-                    proveedorFinal = ""
-                
-                createInsumo = Insumos.objects.create(
-                    id = insumo.get('id'),
-                    sku = sku,
-                    nombre = insumo.get('name'),
-                    maxActual = insumo.get('maxActual'),
-                    minActual = insumo.get('minActual'),
-                    existenciaActual = insumo.get('existenciaActual'),
-                    marca = marca[1] if marca else '',
-                    categoria = categoria[1],
-                    proveedor = proveedorFinal,
-                ) 
+                    tipo = "OTROS"
+            
+            createInsumo = Productos.objects.create(
+                idProductoTmp = insumo['id'],
+                idProducto = insumo['product_variant_id'][0] if insumo['product_variant_id'] else 0,
+                nombre = insumo['name'],
+                sku = sku,
+                marca = marca,
+                maxActual = insumo['product_max_qty'],
+                minActual = insumo['product_min_qty'],
+                existenciaActual = insumo['qty_available'],
+                existenciaOC = insumo['oc'],
+                categoria = categoria,
+                tipo = tipo,
+                fechaCreacion = insumo['create_date'],
+                proveedor = insumo['provider'],
+                tiempoEntrega = insumo['delay']
+            )
+            new_insumos+=1
     
     return ({
         'status'  : 'success',
-        'message' : f'Se han creado {len(new_insumos)} nuevos Insumos'
+        'message' : new_insumos
     })
 
 
@@ -84,25 +89,26 @@ def insertInputs(inputs):
 # ? Returns:
 #     - Caso error:
 #           Ocurre algún error en traer los insumo de Odoo
-#           La función insertInputs retorna mensaje de error
+#           La función insertInsumos retorna mensaje de error
 #           Ocurre una excepción en la ejecución del código
 #     - Caso succes:
-#           La función insertInputs retorna mensaje success y envía mensaje con la cantidad de productos agregados
+#           La función insertInsumos retorna mensaje success y envía mensaje con la cantidad de productos agregados
 # --------------------------------------------------------------------------------------------------
 def pullInsumosOdoo(request):
     
     try:
         #Traemos los insumos de Odoo
-        insumosOdoo = get_all_insumos()
+        insumosOdoo = ctrInsumo.get_allInsumos()
 
         if insumosOdoo['status'] == 'success':
             
-            response = insertInputs(insumosOdoo)
+            response = insertInsumos(insumosOdoo['products'])
             
             if response['status'] == "success":
+                total = response['message']
                 return JsonResponse({
                     'status' : 'success',
-                    'message' : response['message']
+                    'message' : f'Se han agregado correctamente {total} insumos de {len(insumosOdoo['products'])}'
                 })
 
         else: 
@@ -116,6 +122,54 @@ def pullInsumosOdoo(request):
             'status'  : 'error',
             'message' : f'Ha ocurrido un error al tratar de insertar los datos {str(e)}'
         })
+        
+        
+        
+        
+    
+# --------------------------------------------------------------------------------------------------
+# * Función: createInsumosOdoo
+# * Descripción: Crea nuevos insumos registrados en Odoo a PostgreSQL
+#
+# ! Parámetros:
+#     - request. Como se utiliza para URLS, recibe la información de la consulta
+# 
+# ? Diferencia con la función pullProductsOdoo
+#     - Esta hace llamada a get_newInsumos del controlador, solo obteniendo los insumos que se han creado 
+#           el día anterior a la ejecución del código
+#
+# ? Returns:
+#     - Caso error:
+#           Ocurre error al obtener los nuevos insumos
+#           La función insertInsumos retorna mensaje de error
+#           Ocurre una excepción en la ejecución del código
+#     - Caso succes:
+#           La función insertInsumos retorna mensaje success y envía mensaje con la cantidad de productos actualizados
+# --------------------------------------------------------------------------------------------------
+def createInsumosOdoo(request):
+    try:
+        #traemos los productos nuevos de odoo
+        insumosOdoo = ctrInsumo.get_newInsumos()
+        if insumosOdoo['status'] == 'success':
+
+            response = insertInsumos(insumosOdoo['products'])
+            
+            if response['status'] == "success":
+                total = response['message']
+                return JsonResponse({
+                    'status' : 'success',
+                    'message' : f'Se han agregado correctamente {total} nuevos insumos de {len(insumosOdoo['products'])}'
+                }) 
+            
+        return JsonResponse({
+            'status'  : 'error',
+            'message' : insumosOdoo['message']
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status'  : 'error',
+            'message' : f'Ha ocurrido un error al tratar de insertar los datos: {str(e)}'
+        })        
 
 
 
@@ -132,46 +186,69 @@ def pullInsumosOdoo(request):
 #       esto debido a que no hay una forma clara de obtener la información necesaria de Odoo de los campos 
 #       actualizados y qué insumos han sido actualizados y cuáles no
 #       !Nota: Está función puede actualizarse y optimizarse resolviendo esta problemática.
-#     - Debe de cumplir con la lógica y las condiciones de la función insertInputs
+#     - Debe de cumplir con la lógica y las condiciones de la función insertInsumos
 #     - La función modificará todos los campos del producto en cuestión a excepción del ID
 #
 # ? Returns:
 #     - Caso error:
-#           La función insertInputs retorna mensaje de error
+#           La función insertInsumos retorna mensaje de error
 #           Ocurre una excepción en la ejecución del código
 #     - Caso succes:
-#           La función insertInputs retorna mensaje success y envía mensaje con la cantidad de productos actualizados
+#           La función insertInsumos retorna mensaje success y envía mensaje con la cantidad de productos actualizados
 # --------------------------------------------------------------------------------------------------
 def updateInsumosOdoo(request):
     try:
         #? Traemos los insumos de odoo
-        insumosOdoo = get_all_insumos()
+        insumosOdoo = ctrInsumo.get_allInsumos()
         
         if insumosOdoo['status'] == 'success':
-            odoo_dict = {i['sku']: i for i in insumosOdoo['products']}
-
-            #?Traemos los productos de PostgreSQL
-            insumosPSQL = list(Insumos.objects.all())
+            updatedInsumos=0
             
-            insumosActualizados = []
-            for insumo in insumosPSQL:
-                odooInsumo = odoo_dict.get(insumo.sku)
-                if odooInsumo:
-                    insumo.nombre           = odooInsumo.get('name', '')
-                    insumo.sku              = odooInsumo.get('sku', '')
-                    insumo.marca            = odooInsumo.get('marca', '')[1] if isinstance(odooInsumo.get('marca'), (list, tuple)) else ''
-                    insumo.maxActual        = odooInsumo.get('maxActual', 0)
-                    insumo.minActual        = odooInsumo.get('minActual', 0)
-                    insumo.existenciaActual = odooInsumo.get('existenciaActual', 0)
-                    insumo.categoria        = odooInsumo.get('categoria', '')[1] if isinstance(odooInsumo.get('categoria'), (list, tuple)) else ''
-                    insumo.proveedor        = odooInsumo.get('proveedor')[0]['partner_id'][1] if len(odooInsumo.get('proveedor')) > 0 else ''
-                    insumo.tiempoEntrega    = odooInsumo.get('proveedor')[0]['delay'] if len(odooInsumo.get('proveedor')) > 0 else 0
-                    insumosActualizados.append(insumo)
+            for insumo in insumosOdoo['products']:
+                try:
+                    #Busca el ID del insumo en Postgres
+                    insumoObj = Productos.objects.get(idProductoTmp=insumo['id'])
+                    
+                    sku = insumo['default_code'] if insumo['default_code'] else ""
+                    marca = insumo['product_brand_id'][1] if insumo['product_brand_id'] else ""
+                    categoria = insumo['categ_id'][1]
+                    rutas = len(insumo['route_ids'])
 
-            Insumos.objects.bulk_update(insumosActualizados, ['nombre', 'sku', 'marca', 'maxActual', 'minActual', 'existenciaActual', 'categoria', 'proveedor', 'tiempoEntrega'])
+                    if insumo['active']==False:
+                        tipo = "DESCONTINUADO"
+                    else:
+                        if "MAQUILAS" in categoria or "MT" in sku: 
+                            tipo = "MAQUILAS"
+                        elif "PC" in sku:
+                            tipo = "PRODUCTO COMERCIAL"
+                        elif "PT" in sku and rutas > 0 and insumo['purchase_ok'] == True and insumo['active'] == True:
+                            tipo = "RESURTIBLE"
+                        elif "PT" in sku and (rutas == 0 or insumo['purchase_ok'] == False or insumo['active'] == False):
+                            tipo = "NO RESURTIBLE"
+                        else:
+                            tipo = "OTROS"
+
+                    # Asigna los nuevos valores de Odoo a los insumos de PostgreSQL
+                    insumoObj.nombre           = insumo['name']
+                    insumoObj.sku              = sku
+                    insumoObj.marca            = marca
+                    insumoObj.maxActual        = insumo['product_max_qty']
+                    insumoObj.minActual        = insumo['product_min_qty']
+                    insumoObj.existenciaActual = insumo['qty_available']
+                    insumoObj.existenciaOC     = insumo['oc']
+                    insumoObj.categoria        = categoria
+                    insumoObj.tipo             = tipo
+                    insumoObj.proveedor        = insumo['provider']
+                    insumoObj.tiempoEntrega    = insumo['delay']
+
+                    insumoObj.save()
+                    updatedInsumos+=1
+                except:
+                    pass
+            
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se han actualizado {len(insumosActualizados)} correctamente'
+                'message' : f'Se han actualizado correctamente {updatedInsumos} insumos de {len(insumosOdoo['products'])}'
             })
         return JsonResponse({
             'status'  : 'error',
@@ -181,52 +258,6 @@ def updateInsumosOdoo(request):
         return JsonResponse({
             'status'  : 'error',
             'message' : f'Ha ocurrido un error al tratar de insertar los datos {str(e)}'
-        })
-
-
-
-
-# --------------------------------------------------------------------------------------------------
-# * Función: createNewInsumosFromOdoo
-# * Descripción: Crea nuevos insumos registrados en Odoo a PostgreSQL
-#
-# ! Parámetros:
-#     - request. Como se utiliza para URLS, recibe la información de la consulta
-# 
-# ? Diferencia con la función pullProductsOdoo
-#     - Esta hace llamada a get_newInsumos del controlador, solo obteniendo los insumos que se han creado 
-#           el día anterior a la ejecución del código
-#
-# ? Returns:
-#     - Caso error:
-#           Ocurre error al obtener los nuevos insumos
-#           La función insertInputs retorna mensaje de error
-#           Ocurre una excepción en la ejecución del código
-#     - Caso succes:
-#           La función insertInputs retorna mensaje success y envía mensaje con la cantidad de productos actualizados
-# --------------------------------------------------------------------------------------------------
-def createNewInsumosFromOdoo(request):
-    try:
-        #traemos los productos nuevos de odoo
-        insumosOdoo = get_newInsumos()
-        if insumosOdoo['status'] == 'success':
-
-            response = insertInputs(insumosOdoo)
-            
-            if response['status'] == "success":
-                return JsonResponse({
-                    'status' : 'success',
-                    'message' : response['message']
-                })  
-            
-        return JsonResponse({
-            'status'  : 'error',
-            'message' : insumosOdoo['message']
-        })
-    except Exception as e:
-        return JsonResponse({
-            'status'  : 'error',
-            'message' : f'Ha ocurrido un error al tratar de insertar los datos: {str(e)}'
         })
 
 
@@ -253,7 +284,7 @@ def createNewInsumosFromOdoo(request):
 def updateMaxMin(insumo, max, min):
     try:
 
-        response = updateMaxMinOdoo(insumo.id, max, min)
+        response = ctrInsumo.updateMaxMinOdoo(insumo.id, max, min)
         if response['status'] == 'success':
 
             insumo.maxActual = int(round(max))

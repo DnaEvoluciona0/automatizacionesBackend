@@ -87,7 +87,7 @@ def get_newCaducidades():
         caducidades = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'stock.lot', 'search_read', 
-            [[['create_date', '>=', lastDay]]],
+            [[('create_date', '>=', lastDay)]],
             { 'fields' : ['name', 'product_id', 'product_qty']}
         )
         

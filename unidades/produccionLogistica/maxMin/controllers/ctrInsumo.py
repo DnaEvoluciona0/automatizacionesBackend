@@ -7,7 +7,7 @@ from conexiones.conectionOdoo import OdooAPI
 conOdoo = OdooAPI()
 
 # --------------------------------------------------------------------------------------------------
-# * Función: get_all_insumos
+# * Función: get_allInsumos
 # * Descripción: Obtiene todos los productos (que únicamente sean insumos) de Odoo
 #
 # ! Parámetros:
@@ -30,7 +30,8 @@ conOdoo = OdooAPI()
 #   - Caso error: 
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # --------------------------------------------------------------------------------------------------
-def get_all_insumos():
+def get_allInsumos():
+    #!Determinamos si existe conexión con odoo
     if not conOdoo.models:
         return ({
             'status'  : 'error',
@@ -39,66 +40,76 @@ def get_all_insumos():
 
     #funcion try para arrojar los insumos de odoo
     try:
-        # Obtener todos los productos que cumplan con las condiciones 
+        # Obtener todos los insumos que cumplan con las condiciones 
         insumosOdoo = conOdoo.models.execute_kw(
             conOdoo.db, conOdoo.uid, conOdoo.password,
-            'product.product', 'search_read', 
+            'product.template', 'search_read', 
             [[
-                '&',
-                ('categ_id', 'ilike', 'INSUMO'),
-                ('categ_id.parent_id', 'not ilike', 'AGENCIA DIGITAL'),
-                ('default_code', 'not ilike', 'STUDIO'),
-                ('default_code', 'not ilike', 'T-S'),
-                ('default_code', 'not ilike', 'T-T'),
+                '|', ('active', '=', True), ('active', '=', False), 
+                ('categ_id', 'ilike', 'INSUMO'), 
+                ('categ_id.parent_id', 'not ilike', 'AGENCIA DIGITAL'), 
+                ('default_code', 'not ilike', 'STUDIO'), 
+                ('default_code', 'not ilike', 'T-S'), 
+                ('default_code', 'not ilike', 'T-T')
             ]],
-            {  'fields' : ['id', 'name', 'default_code', 'qty_available', 'product_brand_id', 'categ_id', 'route_ids']  }
+            {  'fields' : ['id', 'name', 'default_code', 'qty_available', 'product_brand_id', 'categ_id', 'route_ids', 'product_variant_id', 'purchase_ok', 'create_date', 'active'] }
         )
-
+        
+        idsT = [insumo['id'] for insumo in insumosOdoo]
+        ids = [insumo['product_variant_id'][0] for insumo in insumosOdoo if insumo['product_variant_id']]
+            
         # Obtener reglas de maximos y minimos
-        orderpoints = conOdoo.models.execute_kw(
+        orderpointsOdoo = conOdoo.models.execute_kw(
             conOdoo.db, conOdoo.uid, conOdoo.password, 
             'stock.warehouse.orderpoint', 'search_read', 
-            [[]],
-            {  'fields' : ['product_id', 'product_min_qty', 'product_max_qty']  }
+            [[('product_tmpl_id', 'in', idsT)]],
+            {  'fields' : ['product_tmpl_id', 'product_min_qty', 'product_max_qty']  }
         )
-
+        
+        orderpoints = {op['product_tmpl_id'][0]: op for op in orderpointsOdoo}
+            
         # Obtener reglas de proveedores
-        providers = conOdoo.models.execute_kw(
+        providersOdoo = conOdoo.models.execute_kw(
             conOdoo.db, conOdoo.uid, conOdoo.password,
             'product.supplierinfo', 'search_read', 
-            [[]],
+            [[('product_tmpl_id', 'in', idsT)]],
             {  'fields' : ['product_tmpl_id', 'partner_id', 'delay'] }
         )
-
-        finalInsumos = []
-
+        
+        providers = {prov['product_tmpl_id'][0]: prov for prov in providersOdoo}
+        
+        existenciasOCOdoo = conOdoo.models.execute_kw(
+            conOdoo.db, conOdoo.uid, conOdoo.password,
+            'purchase.order.line', 'search_read',
+            [[('product_id', 'in', ids)]],
+            {  'fields' : ['product_id', 'product_qty'], 'limit':1 }
+        )
+        
+        existenciasOC = {oc['product_id'][0]: oc for oc in existenciasOCOdoo}
+        
         # Por cada producto encontrado que cumpla las reglas, relaciona los valores con las 
         # reglas de maximos y minimos (orderpoints) y los proveedores (poviders)
         for insumo in insumosOdoo:
-            insumoId   = insumo['id']
-            insumoName = insumo['name']
-            points     = [op for op in orderpoints if op['product_id'][0] == insumoId]
-            provider   = [pr for pr in providers   if insumoName in pr['product_tmpl_id'][1]]
+            insumo_id = insumo['id']
+            variant_id = insumo['product_variant_id'][0] if insumo['product_variant_id'] else 0
+            
+            orderpoint = orderpoints.get(insumo_id, {})
+            insumo['product_min_qty'] = orderpoint.get('product_min_qty', 0)
+            insumo['product_max_qty'] = orderpoint.get('product_max_qty', 0)
 
-            minQty = points[0]['product_min_qty'] if points else 0
-            maxQty = points[0]['product_max_qty'] if points else 0
-
-            finalInsumos.append({
-                'id'               : insumoId,
-                'name'             : insumo['name'],
-                'sku'              : insumo['default_code'],
-                'existenciaActual' : insumo['qty_available'],
-                'minActual'        : minQty,
-                'maxActual'        : maxQty,
-                'marca'            : insumo['product_brand_id'],
-                'categoria'        : insumo['categ_id'],
-                'routes'           : insumo['route_ids'],
-                'proveedor'        : provider
-            })
-
+            provider = providers.get(insumo_id, {})
+            insumo['provider'] = provider.get('partner_id', ['None', 'Sin proveedor'])[1]
+            insumo['delay'] = provider.get('delay', 0)
+    
+            if variant_id:
+                oc = existenciasOC.get(variant_id, {})
+                insumo['oc'] = oc.get('product_qty', 0)
+            else:
+                insumo['oc'] = 0
+                
         return ({
             'status'   : 'success',
-            'products' : finalInsumos
+            'products' : insumosOdoo
         })
 
     except xmlrpc.client.Fault as e:
@@ -136,98 +147,99 @@ def get_all_insumos():
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # --------------------------------------------------------------------------------------------------
 def get_newInsumos():
-    #Verificamos que haya alguna conexion con odoo
+    lastDay = (datetime.today() - timedelta(days=1) + timedelta(hours=6)).strftime("%Y-%m-%d 00:00:00")
+    #!Determinamos si existe conexión con odoo
     if not conOdoo.models:
-        return({
+        return ({
             'status'  : 'error',
             'message' : 'Error en la conexión con Odoo, no hay conexión Activa'
         })
 
+    #funcion try para arrojar los insumos de odoo
     try:
-        today     = datetime.now()
-        yesterday = today - timedelta(days=1)
-        dateStart = yesterday.strftime('%Y-%m-%d 00:00:00')
-        dateEnd   = today.strftime('%Y-%m-%d 23:59:59')
-
-        # Obtiene todos los ids de los productos creados el día anterior
-        insumoTemplateID = conOdoo.models.execute_kw(
-            conOdoo.db, conOdoo.uid, conOdoo.password,
-            'product.template', 'search',
-            [[
-                ('create_date', '>=', dateStart),
-                ('create_date', '<=', dateEnd)
-            ]],
-
-        )
-        
-        # Obtener todos los productos que cumplan con las condiciones
+        # Obtener todos los insumos que cumplan con las condiciones 
         insumosOdoo = conOdoo.models.execute_kw(
             conOdoo.db, conOdoo.uid, conOdoo.password,
-            'product.product', 'search_read', 
+            'product.template', 'search_read', 
             [[
-                '&',
-                ('categ_id', 'ilike', 'INSUMO'),
-                ('product_tmpl_id', 'in', insumoTemplateID),
-                ('categ_id.parent_id', 'not ilike', 'AGENCIA DIGITAL'),
-                ('default_code', 'not ilike', 'STUDIO'),
-                ('default_code', 'not ilike', 'T-S'),
-                ('default_code', 'not ilike', 'T-T'),
+                ('create_date', '>=', lastDay),
+                '|', ('active', '=', True), ('active', '=', False), 
+                ('categ_id', 'ilike', 'INSUMO'), 
+                ('categ_id.parent_id', 'not ilike', 'AGENCIA DIGITAL'), 
+                ('default_code', 'not ilike', 'STUDIO'), 
+                ('default_code', 'not ilike', 'T-S'), 
+                ('default_code', 'not ilike', 'T-T')
             ]],
-            {  'fields' : ['id', 'name', 'default_code', 'qty_available', 'product_brand_id', 'categ_id', 'route_ids']  }
+            {  'fields' : ['id', 'name', 'default_code', 'qty_available', 'product_brand_id', 'categ_id', 'route_ids', 'product_variant_id', 'purchase_ok', 'create_date', 'active'] }
         )
-
+        
+        idsT = [insumo['id'] for insumo in insumosOdoo]
+        ids = [insumo['product_variant_id'][0] for insumo in insumosOdoo if insumo['product_variant_id']]
+            
         # Obtener reglas de maximos y minimos
-        orderpoints = conOdoo.models.execute_kw(
+        orderpointsOdoo = conOdoo.models.execute_kw(
             conOdoo.db, conOdoo.uid, conOdoo.password, 
             'stock.warehouse.orderpoint', 'search_read', 
-            [[]],
-            {  'fields' : ['product_id', 'product_min_qty', 'product_max_qty']  }
+            [[('product_tmpl_id', 'in', idsT)]],
+            {  'fields' : ['product_tmpl_id', 'product_min_qty', 'product_max_qty']  }
         )
-
+        
+        orderpoints = {op['product_tmpl_id'][0]: op for op in orderpointsOdoo}
+            
         # Obtener reglas de proveedores
-        providers = conOdoo.models.execute_kw(
+        providersOdoo = conOdoo.models.execute_kw(
             conOdoo.db, conOdoo.uid, conOdoo.password,
             'product.supplierinfo', 'search_read', 
-            [[]],
+            [[('product_tmpl_id', 'in', idsT)]],
             {  'fields' : ['product_tmpl_id', 'partner_id', 'delay'] }
         )
-
-        finalInsumos = []
-
+        
+        providers = {prov['product_tmpl_id'][0]: prov for prov in providersOdoo}
+        
+        existenciasOCOdoo = conOdoo.models.execute_kw(
+            conOdoo.db, conOdoo.uid, conOdoo.password,
+            'purchase.order.line', 'search_read',
+            [[('product_id', 'in', ids)]],
+            {  'fields' : ['product_id', 'product_qty'], 'limit':1 }
+        )
+        
+        existenciasOC = {oc['product_id'][0]: oc for oc in existenciasOCOdoo}
+        
         # Por cada producto encontrado que cumpla las reglas, relaciona los valores con las 
         # reglas de maximos y minimos (orderpoints) y los proveedores (poviders)
         for insumo in insumosOdoo:
-            insumoId   = insumo['id']
-            insumoName = insumo['name']
-            points     = [op for op in orderpoints if op['product_id'][0] == insumoId]
-            provider   = [pr for pr in providers   if insumoName in pr['product_tmpl_id'][1]]
+            insumo_id = insumo['id']
+            variant_id = insumo['product_variant_id'][0] if insumo['product_variant_id'] else 0
+            
+            orderpoint = orderpoints.get(insumo_id, {})
+            insumo['product_min_qty'] = orderpoint.get('product_min_qty', 0)
+            insumo['product_max_qty'] = orderpoint.get('product_max_qty', 0)
 
-            minQty = points[0]['product_min_qty'] if points else 0
-            maxQty = points[0]['product_max_qty'] if points else 0
-
-            finalInsumos.append({
-                'id'               : insumoId,
-                'name'             : insumo['name'],
-                'sku'              : insumo['default_code'],
-                'existenciaActual' : insumo['qty_available'],
-                'minActual'        : minQty,
-                'maxActual'        : maxQty,
-                'marca'            : insumo['product_brand_id'],
-                'categoria'        : insumo['categ_id'],
-                'routes'           : insumo['route_ids'],
-                'proveedor'        : provider
-            })
+            provider = providers.get(insumo_id, {})
+            insumo['provider'] = provider.get('partner_id', ['None', 'Sin proveedor'])[1]
+            insumo['delay'] = provider.get('delay', 0)
+    
+            if variant_id:
+                oc = existenciasOC.get(variant_id, {})
+                insumo['oc'] = oc.get('product_qty', 0)
+            else:
+                insumo['oc'] = 0
+                
         return ({
             'status'   : 'success',
-            'products' : finalInsumos
+            'products' : insumosOdoo
         })
+
     except xmlrpc.client.Fault as e:
         return ({
             'status'       : 'error',
             'message'      : f'Error al ejecutar la consulta a Odoo: {str(e)}',
             'fault_code'   : e.faultCode,
             'fault_string' : e.faultString,
-        })
+        })     
+        
+        
+        
 
 
 # --------------------------------------------------------------------------------------------------
