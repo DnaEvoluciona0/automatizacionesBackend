@@ -25,6 +25,7 @@ from unidades.produccionLogistica.maxMin.views.viewsMaterialPI import pullMateri
 from unidades.administracion.reporteVentas.views.viewsClientes import pullClientesOdoo, pullClientesExcel, createClientesOdoo, updateClientesOdoo
 from unidades.administracion.reporteVentas.views.viewsVentas import pullVentasOdoo, pullVentasExcel, createVentasOdoo
 from unidades.administracion.reporteVentas.views.viewsCaducidades import pullCaducidadesOdoo, createCaducidadesOdoo, updateCaducidadesOdoo
+from unidades.marketing.autorepcuentas.views.api_views import sync_accounts, sync_ads, sync_adsets, sync_campaigns, list_accounts, extract_ads, extract_adsets, extract_campaigns
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -60,4 +61,14 @@ urlpatterns = [
     
     #!Rutas Actualizar Max y Min Insumos
     #!path('auto/updatemaxmin/', updateMinMax),
+
+    #! Rutas para Marketing - Meta Ads (AutoRepCuentas)
+    path('auto/marketing/accounts/sync/', sync_accounts),
+    path('auto/marketing/accounts/list/', list_accounts),
+    path('auto/marketing/campaigns/extract/', extract_campaigns),
+    path('auto/marketing/campaigns/sync/', sync_campaigns),
+    path('auto/marketing/adsets/extract/', extract_adsets),
+    path('auto/marketing/adsets/sync/', sync_adsets),
+    path('auto/marketing/ads/extract/', extract_ads),
+    path('auto/marketing/ads/sync/', sync_ads),
 ]
