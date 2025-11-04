@@ -113,7 +113,7 @@ def pullProductsOdoo(request):
                 totalRows = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {totalRows} productos de {len(productsOdoo['products'])}'
+                    'message' : f'Se han agregado correctamente {totalRows} productos de {len(productsOdoo["products"])}'
                 })
 
             return JsonResponse({
@@ -167,7 +167,7 @@ def createNewProductsFromOdoo(request):
                 totalRows = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo['products'])}'
+                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo["products"])}'
                 })
 
             return JsonResponse({
@@ -259,7 +259,7 @@ def updateProducts(request):
                     
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se han actualizado correctamente {updatedProducts} productos de {len(productsOdoo['products'])}'
+                'message' : f'Se han actualizado correctamente {updatedProducts} productos de {len(productsOdoo["products"])}'
             })
 
         return JsonResponse({

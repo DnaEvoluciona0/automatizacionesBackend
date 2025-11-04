@@ -55,7 +55,7 @@ def pullMaterialPi(request):
                     
             return JsonResponse({
                 'status' : 'success',
-                'message' : f'Se han cargado {cantidadPI} materiales de productos de {len(result['materiales'])}'
+                'message' : f'Se han cargado {cantidadPI} materiales de productos de {len(result["materiales"])}'
             })
         return JsonResponse({
             'status'  : 'error',

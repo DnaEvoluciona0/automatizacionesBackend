@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "unidades.administracion.reporteVentas",
     "unidades.produccionLogistica.maxMin",
+    "unidades.marketing.autorepcuentas",
 ]
 
 MIDDLEWARE = [

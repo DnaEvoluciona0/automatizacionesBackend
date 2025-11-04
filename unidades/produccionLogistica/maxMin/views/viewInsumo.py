@@ -108,7 +108,7 @@ def pullInsumosOdoo(request):
                 total = response['message']
                 return JsonResponse({
                     'status' : 'success',
-                    'message' : f'Se han agregado correctamente {total} insumos de {len(insumosOdoo['products'])}'
+                    'message' : f'Se han agregado correctamente {total} insumos de {len(insumosOdoo["products"])}'
                 })
 
         else: 
@@ -158,7 +158,7 @@ def createInsumosOdoo(request):
                 total = response['message']
                 return JsonResponse({
                     'status' : 'success',
-                    'message' : f'Se han agregado correctamente {total} nuevos insumos de {len(insumosOdoo['products'])}'
+                    'message' : f'Se han agregado correctamente {total} nuevos insumos de {len(insumosOdoo["products"])}'
                 }) 
             
         return JsonResponse({
@@ -248,7 +248,7 @@ def updateInsumosOdoo(request):
             
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se han actualizado correctamente {updatedInsumos} insumos de {len(insumosOdoo['products'])}'
+                'message' : f'Se han actualizado correctamente {updatedInsumos} insumos de {len(insumosOdoo["products"])}'
             })
         return JsonResponse({
             'status'  : 'error',

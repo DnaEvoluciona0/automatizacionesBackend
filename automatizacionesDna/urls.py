@@ -59,5 +59,5 @@ urlpatterns = [
     path('auto/pullVentasExcel/', pullVentasExcel),
     
     #!Rutas Actualizar Max y Min Insumos
-    path('auto/updatemaxmin/', updateMinMax),
+    #!path('auto/updatemaxmin/', updateMinMax),
 ]
