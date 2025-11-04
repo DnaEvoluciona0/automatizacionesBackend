@@ -17,10 +17,10 @@ from urllib.parse import urlencode
 # Agregar el directorio raíz al path para imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from conexiones.connection_supabase import SupabaseAPI
-from conexiones.connection_meta_api import MetaAPI
-from utils.date_utils import DateManager
-from utils.db_validator import DatabaseValidator
+from ..conexiones.connection_supabase import SupabaseAPI
+from ..conexiones.connection_meta_api import MetaAPI
+from ..utils.date_utils import DateManager
+from ..utils.db_validator import DatabaseValidator
 
 
 # --------------------------------------------------------------------------------------------------

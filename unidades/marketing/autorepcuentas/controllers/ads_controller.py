@@ -16,9 +16,9 @@ from urllib.parse import urlencode
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from conexiones.connection_supabase import SupabaseAPI
-from conexiones.connection_meta_api import MetaAPI
-from utils.date_utils import DateManager
+from ..conexiones.connection_supabase import SupabaseAPI
+from ..conexiones.connection_meta_api import MetaAPI
+from ..utils.date_utils import DateManager
 
 
 # --------------------------------------------------------------------------------------------------
