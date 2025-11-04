@@ -16,6 +16,8 @@ db.sqlite3
 # Archivos de configuración y secretos
 .env
 *.env
+config.json
+date_cache.json
 
 # Archivos estáticos y de medios
 staticfiles/
