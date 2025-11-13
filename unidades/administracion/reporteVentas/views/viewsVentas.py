@@ -3,6 +3,7 @@ from unidades.administracion.reporteVentas.models import Ventas, Clientes
 from unidades.administracion.reporteVentas.views.viewsLineaPV import insertLineaVentaOdoo
 from unidades.administracion.reporteVentas.controllers import ctrVentas
 from unidades.produccionLogistica.maxMin.models import Productos
+from datetime import datetime
 
 # --------------------------------------------------------------------------------------------------
 # * Función: insertVentas
@@ -22,20 +23,23 @@ from unidades.produccionLogistica.maxMin.models import Productos
 def insertVentas(ventas):
     #Llamar a las ventas, productos e insumos ya existentes en Postgres
     ventasPSQL = Ventas.objects.all().values_list('idVenta', flat=True)
-    productosPSQL = Productos.objects.all().values_list('idProductoTmp', flat=True)
     
     newVentas = 0
     newNota = 0
-    
-    contador=0
 
     for venta in ventas:
         if venta['name'] not in ventasPSQL:
-            contador+=len(venta['productsLines'])
             #Asignamos la distribución de la información en sus respectivas variables
             try:
                 #Obtenemos al cliente
                 clienteObj = Clientes.objects.get(idCliente = venta['partner_id'][0])
+                try:
+                    ventaRec = Ventas.objects.filter(cliente=clienteObj).order_by('-fecha').first()
+                except:
+                    ventaRec = False
+                    
+                
+                
                 ventaID=Ventas.objects.create(
                     idVenta         = venta['name'],
                     fecha           = venta['invoice_date'],
@@ -47,27 +51,39 @@ def insertVentas(ventas):
                     total           = venta['amount_total_signed'],
                     cliente         = clienteObj
                 )
+                
+                
                 #Llamamos a pull linea ventas para registrar todos los productos en Postgres
-                insertLineaVentaOdoo(venta['productsLines'], ventaID, venta['invoice_date'], productosPSQL)
+                insertLineaVentaOdoo(venta['productsLines'], ventaID, venta['invoice_date'])
                 #Factura
                 if venta['move_type'] == 'out_invoice':
                     newVentas=newVentas+1
+                    clienteObj.numTransacciones+=1
                 #Nota de credito
                 if venta['move_type'] == 'out_refund':
                     newNota=newNota+1
-                    
-                #Sumamos una nueva venta en el cliente
-                clienteObj.numTransacciones+=1
-                if clienteObj.numTransacciones >= 2:
-                    clienteObj.tipoCliente = 'Cartera'
-                else:
+                
+                if clienteObj.numTransacciones<2:
                     clienteObj.tipoCliente = 'Cliente Nuevo'
-                #Guardamos los cambios
-                """clienteObj.save()"""
+                else:
+                    if ventaRec:
+                        if clienteObj.tipoCliente == 'Cliente Nuevo' and ventaID.fecha.month == ventaRec.fecha.month and ventaID.fecha.year == ventaRec.fecha.year:
+                            clienteObj.tipoCliente = 'Cliente Nuevo'
+                        elif (ventaID.fecha - ventaRec.fecha).days >180:
+                            clienteObj.tipoCliente = 'Cliente Recuperado'
+                        else:
+                            if clienteObj.tipoCliente == 'Cliente Recuperado' and ventaID.fecha.month == ventaRec.fecha.month and ventaID.fecha.year == ventaRec.fecha.year:
+                                clienteObj.tipoCliente = 'Cliente Recuperado'
+                            clienteObj.tipoCliente = 'Cliente Cartera'
+
+                clienteObj.save()
+                
+                ventaID.tipoCliente = clienteObj.tipoCliente
+                ventaID.save()
                 
             except Exception as e:
-                print("Ventas", e, venta)
-    print("lineas colocadas", contador)
+                print("Error en viewsVentas.insertLVentas | Venta no se inserto: ", e, venta)
+
     return({
         'status'  : 'success',
         'message' : [newVentas, newNota, (newVentas + newNota)]
@@ -141,9 +157,10 @@ def pullVentasOdoo(request):
 # --------------------------------------------------------------------------------------------------        
 def createVentasOdoo(request):
     try:
+        ventasIDs = Ventas.objects.all().values_list('idVenta', flat=True)
         
         #Traer todos los clientes de Odoo
-        ventasOdoo=ctrVentas.get_newSales()
+        ventasOdoo=ctrVentas.get_newSales(list(ventasIDs))
         
         if ventasOdoo['status'] == 'success':
             

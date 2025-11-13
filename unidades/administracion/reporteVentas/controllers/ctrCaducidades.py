@@ -71,7 +71,7 @@ def get_allCaducidades():
 #   - Caso error: 
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # --------------------------------------------------------------------------------------------------    
-def get_newCaducidades():
+def get_newCaducidades(caducidadesIDs):
     #!Determinamos que haya algna conexión con Odoo
     if not conn.models:
         return ({
@@ -81,13 +81,13 @@ def get_newCaducidades():
     
     #Función try para obteners a todos lo caducidades
     try:
-        #Obtiene el dia anterior al que es hoy
-        lastDay = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
         #Obtiene todas las caducidades de Odoo
         caducidades = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'stock.lot', 'search_read', 
-            [[('create_date', '>=', lastDay)]],
+            [[
+                ('id', 'not in', caducidadesIDs)    
+            ]],
             { 'fields' : ['name', 'product_id', 'product_qty']}
         )
         
@@ -122,7 +122,7 @@ def get_newCaducidades():
 #   - Caso error: 
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # -------------------------------------------------------------------------------------------------- 
-def update_Caducidades():
+def update_Caducidades(caducidadesIDs):
     #!Determinamos que haya algna conexión con Odoo
     if not conn.models:
         return ({
@@ -136,7 +136,9 @@ def update_Caducidades():
         caducidades = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'stock.lot', 'search_read', 
-            [[]],
+            [[
+                ('id', 'in', caducidadesIDs)    
+            ]],
             { 'fields' : ['name', 'product_id', 'product_qty']}
         )
         

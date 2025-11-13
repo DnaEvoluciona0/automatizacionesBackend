@@ -62,18 +62,21 @@ def insertProducts(products):
                 else:
                     tipo = "OTROS"
             
-            createProduct = Productos.objects.create(
-                idProductoTmp = product['id'],
-                idProducto = product['product_variant_id'][0] if product['product_variant_id'] != False else 0,
-                sku = sku,
-                nombre = product['name'],
-                existenciaActual =  product['qty_available'],
-                marca = marca,
-                categoria = categoria,
-                tipo = tipo,
-                fechaCreacion = product['create_date']
-            )
-            new_products+=1
+            try:
+                createProduct = Productos.objects.create(
+                    idProductoTmp = product['id'],
+                    idProducto = product['product_variant_id'][0] if product['product_variant_id'] != False else 0,
+                    sku = sku,
+                    nombre = product['name'],
+                    existenciaActual =  product['qty_available'],
+                    marca = marca,
+                    categoria = categoria,
+                    tipo = tipo,
+                    fechaCreacion = product['create_date']
+                )
+                new_products+=1
+            except Exception as e:
+                print("Error en viewsProducto.insertProducto | Producto no se inserto: ", e, product)
 
     return ({
         'status'  : 'success',
@@ -156,9 +159,10 @@ def pullProductsOdoo(request):
 #           La función insertProducts retorna mensaje success y envía mensaje con la cantidad de productos actualizados
 # --------------------------------------------------------------------------------------------------
 def createNewProductsFromOdoo(request):
-    try:     
+    try:
+        productosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
         #Traer los productos que existen de odoo        
-        productsOdoo = ctrProducto.get_newProducts()
+        productsOdoo = ctrProducto.get_newProducts(list(productosIDs))
         if productsOdoo['status'] == "success":
 
             response = insertProducts(productsOdoo['products'])
@@ -215,8 +219,9 @@ def createNewProductsFromOdoo(request):
 # --------------------------------------------------------------------------------------------------
 def updateProducts(request):
     try:
+        productosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
         # Productos de Odoo
-        productsOdoo = ctrProducto.get_allProducts()
+        productsOdoo = ctrProducto.get_updateProducts(list(productosIDs))
 
         if productsOdoo['status'] == 'success':
             updatedProducts=0
@@ -254,8 +259,8 @@ def updateProducts(request):
 
                     productoObj.save()
                     updatedProducts+=1
-                except:
-                    pass
+                except Exception as e:
+                    print("Error en viewsProducto.updateProducto | Producto no se actulizo: ", e, product)
                     
             return JsonResponse({
                 'status'  : 'success',
@@ -266,6 +271,55 @@ def updateProducts(request):
             'status'  : 'error',
             'message' : f"Error en realizar la consulta a Odoo: {productsOdoo['message']}"
         })
+    except Exception as e:
+        return JsonResponse({
+            'status'  : 'error',
+            'message' : f'Ha ocurrido un error al tratar de insertar los datos: {str(e)}'
+        })
+        
+
+    # --------------------------------------------------------------------------------------------------
+# * Función: pullProductsOdoo
+# * Descripción: Obtiene todos los productos de Odoo y llama a la función correspondiente para insertart datos
+# * Maneja posibles excepciones
+#
+# ! Parámetros:
+#     - request. Como se utiliza para URLS, recibe la información de la consulta
+#
+# ? Returns:
+#     - Caso error:
+#           Ocurre algún error en traer los productos de Odoo
+#           La función insertProducts retorna mensaje de error
+#           Ocurre una excepción en la ejecución del código
+#     - Caso succes:
+#           La función insertProducts retorna mensaje success y envía mensaje con la cantidad de productos agregados
+# --------------------------------------------------------------------------------------------------
+def pullProductsExcel(request):
+    try:
+        productosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
+        #Traer los productos que existen de odoo        
+        productsOdoo = ctrProducto.get_allProductsExcel(list(productosIDs))
+        if productsOdoo['status'] == "success":
+
+            response = insertProducts(productsOdoo['products'])
+
+            if response['status'] == "success":
+                totalRows = response['message']
+                return JsonResponse({
+                    'status'  : 'success',
+                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo['products'])}'
+                })
+
+            return JsonResponse({
+                'status'  : 'error',
+                'message' : response['message']
+            })
+
+        return JsonResponse({
+            'status'  : 'error',
+            'message' : productsOdoo['message']
+        })
+    
     except Exception as e:
         return JsonResponse({
             'status'  : 'error',

@@ -19,8 +19,8 @@ from django.urls import path
 
 #Rutas agregadas
 from unidades.produccionLogistica.maxMin.dataMaxMin import updateMinMax
-from unidades.produccionLogistica.maxMin.views.viewProducto import pullProductsOdoo, updateProducts, createNewProductsFromOdoo
-from unidades.produccionLogistica.maxMin.views.viewInsumo import pullInsumosOdoo, updateInsumosOdoo, createInsumosOdoo
+from unidades.produccionLogistica.maxMin.views.viewsProducto import pullProductsOdoo, updateProducts, createNewProductsFromOdoo, pullProductsExcel
+from unidades.produccionLogistica.maxMin.views.viewsInsumo import pullInsumosOdoo, updateInsumosOdoo, createInsumosOdoo
 from unidades.produccionLogistica.maxMin.views.viewsMaterialPI import pullMaterialPi
 from unidades.administracion.reporteVentas.views.viewsClientes import pullClientesOdoo, pullClientesExcel, createClientesOdoo, updateClientesOdoo
 from unidades.administracion.reporteVentas.views.viewsVentas import pullVentasOdoo, pullVentasExcel, createVentasOdoo
@@ -30,16 +30,15 @@ from unidades.marketing.autorepcuentas.views.api_views import sync_accounts, syn
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    #!Rutas de productos
+    #!Rutas de productos e insumos
     path('auto/pullProductsOdoo/', pullProductsOdoo),
-    path('auto/createProductsOdoo/', createNewProductsFromOdoo),
-    path('auto/updateProducts/', updateProducts),
-
-    #!Rutas de Insumos
     path('auto/pullInsumosOdoo/', pullInsumosOdoo),
+    path('auto/pullProductsExcel/', pullProductsExcel),
+    path('auto/createProductsOdoo/', createNewProductsFromOdoo),
     path('auto/createInsumosOdoo/', createInsumosOdoo),
+    path('auto/updateProductsOdoo/', updateProducts),
     path('auto/updateInsumosOdoo/', updateInsumosOdoo),
-
+    
     #!Rutas para MaterialesPI
     path('auto/pullMaterialPIOdoo/', pullMaterialPi),
     
@@ -50,14 +49,14 @@ urlpatterns = [
     
     #!Rutas para Clientes
     path('auto/pullClientesOdoo/', pullClientesOdoo),
+    path('auto/pullClientesExcel/', pullClientesExcel),
     path('auto/createClientesOdoo/', createClientesOdoo),
     path('auto/updateClientesOdoo/', updateClientesOdoo),
-    path('auto/pullClientesExcel/', pullClientesExcel),
     
     #!Rutas para Ventas
     path('auto/pullVentasOdoo/', pullVentasOdoo),
-    path('auto/createVentasOdoo/', createVentasOdoo),
     path('auto/pullVentasExcel/', pullVentasExcel),
+    path('auto/createVentasOdoo/', createVentasOdoo),
     
     #!Rutas Actualizar Max y Min Insumos
     #!path('auto/updatemaxmin/', updateMinMax),

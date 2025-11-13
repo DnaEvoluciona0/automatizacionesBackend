@@ -37,8 +37,8 @@ def insertClients(clients):
                     numTransacciones    = 0
                 )
                 newClientes=newClientes+1
-            except:
-                pass
+            except Exception as e:
+                print("Error en viewsClientes.insertClients | Cliente no se inserto: ", e, cliente)
     
     return ({
         'status'  : 'success',
@@ -112,8 +112,9 @@ def pullClientesOdoo(request):
 # --------------------------------------------------------------------------------------------------
 def createClientesOdoo(request):
     try:
+        clientesIDs = Clientes.objects.all().values_list('idCliente', flat=True)
         #Traer todos los clientes de Odoo
-        clientesOdoo=ctrCliente.get_newClients()
+        clientesOdoo=ctrCliente.get_newClients(list(clientesIDs))
         
         if clientesOdoo['status'] == 'success':
             
@@ -160,8 +161,9 @@ def createClientesOdoo(request):
 # --------------------------------------------------------------------------------------------------
 def updateClientesOdoo(request):
     try:
+        clientesIDs = Clientes.objects.all().values_list('idCliente', flat=True)
         #Traer todos los clientes de Odoo que se actualizaron
-        clientesOdoo=ctrCliente.get_updateClients()
+        clientesOdoo=ctrCliente.get_updateClients(list(clientesIDs))
         
         if clientesOdoo['status'] == 'success':
             newClientes = 0
@@ -180,8 +182,8 @@ def updateClientesOdoo(request):
                     #Guarda los cambios de cliente
                     clienteObj.save()
                     newClientes=newClientes+1
-                except:
-                    pass
+                except Exception as e:
+                    print("Error en viewsClientes.insertClients | Cliente no se actualizo: ", e, cliente)
             
             return JsonResponse({
                 'status'  : 'success',
