@@ -50,24 +50,26 @@ def insertInsumos(insumos):
                     tipo = "NO RESURTIBLE"
                 else:
                     tipo = "OTROS"
-            
-            createInsumo = Productos.objects.create(
-                idProductoTmp = insumo['id'],
-                idProducto = insumo['product_variant_id'][0] if insumo['product_variant_id'] else 0,
-                nombre = insumo['name'],
-                sku = sku,
-                marca = marca,
-                maxActual = insumo['product_max_qty'],
-                minActual = insumo['product_min_qty'],
-                existenciaActual = insumo['qty_available'],
-                existenciaOC = insumo['oc'],
-                categoria = categoria,
-                tipo = tipo,
-                fechaCreacion = insumo['create_date'],
-                proveedor = insumo['provider'],
-                tiempoEntrega = insumo['delay']
-            )
-            new_insumos+=1
+            try:
+                createInsumo = Productos.objects.create(
+                    idProductoTmp = insumo['id'],
+                    idProducto = insumo['product_variant_id'][0] if insumo['product_variant_id'] else 0,
+                    nombre = insumo['name'],
+                    sku = sku,
+                    marca = marca,
+                    maxActual = insumo['product_max_qty'],
+                    minActual = insumo['product_min_qty'],
+                    existenciaActual = insumo['qty_available'],
+                    existenciaOC = insumo['oc'],
+                    categoria = categoria,
+                    tipo = tipo,
+                    fechaCreacion = insumo['create_date'],
+                    proveedor = insumo['provider'],
+                    tiempoEntrega = insumo['delay']
+                )
+                new_insumos+=1
+            except Exception as e:
+                print("Error en viewsInsumo.insertInsumo | Insumo no se inserto: ", e, insumo)
     
     return ({
         'status'  : 'success',
@@ -148,8 +150,9 @@ def pullInsumosOdoo(request):
 # --------------------------------------------------------------------------------------------------
 def createInsumosOdoo(request):
     try:
+        insumosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
         #traemos los productos nuevos de odoo
-        insumosOdoo = ctrInsumo.get_newInsumos()
+        insumosOdoo = ctrInsumo.get_newInsumos(list(insumosIDs))
         if insumosOdoo['status'] == 'success':
 
             response = insertInsumos(insumosOdoo['products'])
@@ -198,8 +201,9 @@ def createInsumosOdoo(request):
 # --------------------------------------------------------------------------------------------------
 def updateInsumosOdoo(request):
     try:
+        insumosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
         #? Traemos los insumos de odoo
-        insumosOdoo = ctrInsumo.get_allInsumos()
+        insumosOdoo = ctrInsumo.get_updateInsumos(list(insumosIDs))
         
         if insumosOdoo['status'] == 'success':
             updatedInsumos=0
@@ -243,8 +247,8 @@ def updateInsumosOdoo(request):
 
                     insumoObj.save()
                     updatedInsumos+=1
-                except:
-                    pass
+                except Exception as e:
+                    print("Error en viewsInsumo.updateInsumo | Insumo no se actualizo: ", e, insumo)
             
             return JsonResponse({
                 'status'  : 'success',

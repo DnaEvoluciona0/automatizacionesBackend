@@ -54,13 +54,15 @@ def get_allSales():
             conn.db, conn.uid, conn.password, 
             'account.move', 'search_read', 
             [[
-                ('team_id', 'not ilike', 'STUDIO 105'), 
+                ('team_id', 'not in', [8, 10, 12, 15, 16, 17, 21, 22]), 
                 ('state', '=', 'posted'), 
                 '|', ('move_type', '=', 'out_invoice'), ('move_type', '=', 'out_refund'), 
                 ('branch_id', 'not ilike', 'STUDIO'), ('branch_id', 'not ilike', 'TORRE'), 
                 '|', '|', ('name', 'ilike', 'INV/'), ('name', 'ilike', 'MUEST/'), ('name', 'ilike', 'BONIF/')
             ]],
-            { 'fields' : ['name', 'invoice_date', 'partner_id', 'invoice_user_id', 'partner_shipping_id', 'branch_id', 'amount_total_signed', 'move_type', 'team_id']}
+            { 'fields' : ['name', 'invoice_date', 'partner_id', 'invoice_user_id', 'partner_shipping_id', 'branch_id', 'amount_total_signed', 'move_type', 'team_id'],
+             'order': 'invoice_date asc'
+            }
         )
                 
         #Lista de Ids que se buscaran
@@ -79,12 +81,14 @@ def get_allSales():
             conn.db, conn.uid, conn.password, 
             'account.move.line', 'search_read', 
             [[
-                ('move_id', 'in', ordersID), 
+                ('move_id', 'in', ordersID),
+                ('display_type', '!=', 'line_note'),
+                ('display_type', '!=', 'cogs'),
                 '|', '|', ('account_type', '=', 'income'), ('account_type', '=', 'expense'), ('account_type', '=', False)
             ]],
             { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id']}
         )
-        print("Se obtuvieron:", len(all_product_line))
+        print(len(all_product_line))
         
         #Las guarda todas en un objetos junto con el id de la factura como id principal para encontrarla
         for line in all_product_line:
@@ -95,8 +99,6 @@ def get_allSales():
             #Agrega los productos necesarios a esa misma propiedad
             if line['move_id'][0] in products_data:
                 products_data[line['move_id'][0]].append(line)
-                
-        print("Se formatearon", len(all_product_line))
         
         shipping_data={}
         #Busca en los contactos la información de cada uno
@@ -120,6 +122,7 @@ def get_allSales():
             
             #Agrega una propiedad de productLines con los productos de la venta a la orden
             order['productsLines'] = products
+            order['invoice_date'] =  datetime.strptime(order['invoice_date'], "%Y-%m-%d") + timedelta(hours=6)
             
             #Busca en shipping_data aquel id de cliente a donde se envia el producto y si contiene algo, guarda la información, y si no lo contiene guarda la información
             direccion = shipping_data[order['partner_shipping_id'][0]] if order['partner_shipping_id'][0] in shipping_data else {'country_id': False, 'state_id':False, 'city': False}
@@ -173,7 +176,7 @@ def get_allSales():
 #   - Caso error: 
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # -------------------------------------------------------------------------------------------------- 
-def get_newSales():
+def get_newSales(ventasIDs):
     #!Determinamos que haya algna conexión con Odoo
     if not conn.models:
         return ({
@@ -183,21 +186,21 @@ def get_newSales():
     
     #función try para obtener las facturas
     try:
-        #Obtiene el dia anterior al dia de hoy
-        lastDay = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
         #Busca en odoo las ventas que complan con las siguientes condiciones dadas
         order_sale = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'account.move', 'search_read', 
             [[
-                ('create_date', '>=', lastDay),
-                ('team_id', 'not ilike', 'STUDIO 105'), 
+                ('name', 'not in', ventasIDs),
+                ('team_id', 'not in', [8, 10, 12, 15, 16, 17, 21, 22]), 
                 ('state', '=', 'posted'), 
                 '|', ('move_type', '=', 'out_invoice'), ('move_type', '=', 'out_refund'), 
                 ('branch_id', 'not ilike', 'STUDIO'), ('branch_id', 'not ilike', 'TORRE'), 
                 '|', '|', ('name', 'ilike', 'INV/'), ('name', 'ilike', 'MUEST/'), ('name', 'ilike', 'BONIF/')
             ]],
-            { 'fields' : ['name', 'invoice_date', 'partner_id', 'invoice_user_id', 'partner_shipping_id', 'branch_id', 'amount_total_signed', 'move_type', 'team_id']}
+            { 'fields' : ['name', 'invoice_date', 'partner_id', 'invoice_user_id', 'partner_shipping_id', 'branch_id', 'amount_total_signed', 'move_type', 'team_id'],
+             'order': 'invoice_date asc'
+            }
         )
                 
         #Lista de Ids que se buscaran
@@ -217,7 +220,7 @@ def get_newSales():
             'account.move.line', 'search_read', 
             [[
                 ('move_id', 'in', ordersID),
-                ('product_id', '!=', False),
+                ('display_type', '!=', 'line_note'),
                 '|', '|', ('account_type', '=', 'income'), ('account_type', '=', 'expense'), ('account_type', '=', False)
             ]],
             { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id']}
@@ -255,6 +258,7 @@ def get_newSales():
             
             #Agrega una propiedad de productLines con los productos de la venta a la orden
             order['productsLines'] = products
+            order['invoice_date'] =  datetime.strptime(order['invoice_date'], "%Y-%m-%d") + timedelta(hours=6)
             
             #Busca en shipping_data aquel id de cliente a donde se envia el producto y si contiene algo, guarda la información, y si no lo contiene guarda la información
             direccion = shipping_data[order['partner_shipping_id'][0]] if order['partner_shipping_id'][0] in shipping_data else {'country_id': False, 'state_id':False, 'city': False}
@@ -341,14 +345,15 @@ def get_VentasExcel():
             #Para cada linea de producto obtenido obtenemos sus valores que seran guardados en productList y ademas sumamos sus subtotales para saber el total de la venta
             for indexP, prod in productos.iterrows():
                 productList.append({
-                    'id': indexP, 
-                    'name': '['+prod['SKU']+'] '+prod['nombreProducto'], 
-                    'product_id': str(index), 
+                    'id': prod['id_odoo'], 
+                    'name': prod['nombreProducto'], 
+                    'product_id': [prod['id_odoo'], ''],
                     'quantity': prod['Cantidad facturada'], 
                     'price_unit': prod['Precio unitario'], 
                     'price_subtotal': prod['Total'],
                     'move_id': prod['idVenta']
                 })
+                ##'name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id'
                 total=total+prod['Total']
             
             #Si el idcliente de nuestra venta en excel se encuentra en shipping_data, agrega los valores encontrados y si no setea los valores necesarios como false
@@ -359,7 +364,7 @@ def get_VentasExcel():
                 order_sale.append({
                     'id': index,
                     'name': venta["idVenta"],
-                    'invoice_date': venta["Fecha"],
+                    'invoice_date': datetime.strptime(venta["Fecha"].strftime('%Y-%m-%d'), "%Y-%m-%d") + timedelta(hours=6),
                     'partner_id': [venta["idcliente"]],
                     'invoice_user_id': [None, venta["vendedor"]],
                     'partner_shipping_id': venta["idcliente"],
