@@ -45,13 +45,13 @@ def pullMaterialPi(request):
                     hijoId = Productos.objects.get(idProductoTmp=material['product_tmpl_id'][0])
                     
                     createMaterialPI = MaterialPI.objects.create(
-                        idPadre = padreId,
-                        idHijo = hijoId,
+                        padre = padreId,
+                        hijo = hijoId,
                         cantidad = material['product_qty']
                     )
                     cantidadPI+=1
-                except:
-                    pass
+                except Exception as e:
+                    print("Error en viewsMaterialPI.pullMaterialPi | Material no se inserto: ", e, material)
                     
             return JsonResponse({
                 'status' : 'success',

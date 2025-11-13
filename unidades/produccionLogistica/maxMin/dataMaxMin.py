@@ -1,11 +1,11 @@
-from django.http import JsonResponse
+'''from django.http import JsonResponse
 from django.db.models import F, ExpressionWrapper, FloatField, Subquery, OuterRef, Sum, Count, Value, Case, When, Q
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 from unidades.produccionLogistica.maxMin.models import MaterialPI
 from unidades.administracion.reporteVentas.models import VentasPVA
-from unidades.produccionLogistica.maxMin.views.viewInsumo import updateMaxMin
+from unidades.produccionLogistica.maxMin.views.viewsInsumo import updateMaxMin
 
 
 # --------------------------------------------------------------------------------------------------
@@ -121,10 +121,10 @@ def addAverageSalesSI(inputs):
 #       Retorna JSON con los datos de todos los productos e insumos con sus datos de ventas
 #   - Caso Error:
 #       Retorna JSON con mensaje de error y descripción del error.
-# --------------------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------'''
 #!Actualizar máximos y mínimos de Odoo. 
 def updateMinMax(request):
-    try:
+    '''try:
         #? Traemos los datos que son necesarios 
         #? Primero hacemos la subconsulta del promedio de ventas de los productos para el tercer trimestre mayor al del año pasado
         hoy = datetime.now()
@@ -350,4 +350,4 @@ def updateMinMax(request):
         return JsonResponse({
             'status'       : 'error',
             'message'      : f'Ha ocurrido un error al tratar de insertar los datos: {str(e)}'
-        })
+        })'''

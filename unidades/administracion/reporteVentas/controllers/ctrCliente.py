@@ -46,7 +46,7 @@ def get_allClients():
                 '|', ('move_type', '=', 'out_invoice'), ('move_type', '=', 'out_refund'), 
                 ('branch_id', 'not ilike', 'STUDIO'), 
                 ('branch_id', 'not ilike', 'TORRE'),
-                ('team_id', 'not ilike', 'STUDIO 105'), 
+                ('team_id', 'not in', [8, 10, 12, 15, 16, 17, 21, 22]),
                 '|', '|', ('name', 'ilike', 'INV/'), ('name', 'ilike', 'MUEST/'), ('name', 'ilike', 'BONIF/')
             ],['partner_id'],['partner_id']]
         )
@@ -94,7 +94,7 @@ def get_allClients():
 #   - Caso error: 
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # --------------------------------------------------------------------------------------------------
-def get_newClients():
+def get_newClients(clientesIDs):
     #!Determinamos que haya algna conexión con Odoo
     if not conn.models:
         return ({
@@ -103,10 +103,7 @@ def get_newClients():
         })
     
     #Función try para obteners a todos lo clientes
-    try:
-        #Obtiene el dia anterior al que es hoy
-        lastDay = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-        
+    try:        
         #Obtener todos los clientes que aparecen en los invoices
         partner_invoice = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
@@ -128,8 +125,8 @@ def get_newClients():
             conn.db, conn.uid, conn.password, 
             'res.partner', 'search_read', 
             [[
-                ('write_date', '>=', lastDay),
-                ('id', 'in', partner_ids), 
+                ('id', 'not in', clientesIDs),
+                ('id', 'in', partner_ids),
                 '|', ('active', '=', True), ('active', '=', False)
             ]],
             { 'fields' : ['name', 'city', 'state_id', 'country_id']}
@@ -169,7 +166,7 @@ def get_newClients():
 #   - Caso error: 
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # --------------------------------------------------------------------------------------------------
-def get_updateClients():
+def get_updateClients(clientesIDs):
     #!Determinamos que haya algna conexión con Odoo
     if not conn.models:
         return ({
@@ -178,10 +175,7 @@ def get_updateClients():
         })
     
     #Función try para obteners a todos lo clientes
-    try:
-        #Obtiene el dia anterior al que es hoy
-        lastDay = (datetime.today() - timedelta(days=1)).strftime('%Y-%m-%d')
-        
+    try:        
         #Obtener todos los clientes que aparecen en los invoices
         partner_invoice = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
@@ -203,7 +197,7 @@ def get_updateClients():
             conn.db, conn.uid, conn.password, 
             'res.partner', 'search_read', 
             [[
-                ('write_date', '>=', lastDay),
+                ('id', 'in', clientesIDs),
                 ('id', 'in', partner_ids), 
                 '|', ('active', '=', True), ('active', '=', False)
             ]],

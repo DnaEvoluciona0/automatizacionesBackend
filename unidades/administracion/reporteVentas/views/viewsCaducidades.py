@@ -37,8 +37,8 @@ def insertCaducidades(productos, caducidades):
                     producto = productoObj
                 )
                 newCaducidad=newCaducidad+1
-            except:
-                pass
+            except Exception as e:
+                print("Error en viewsCaducidades.insertCaducidades | Caducidad con idProducto no se inserto: ", e, caducidad)
                 
         if caducidad['product_id'][0] not in productos:
             try:
@@ -55,7 +55,7 @@ def insertCaducidades(productos, caducidades):
                 )
                 newCaducidad=newCaducidad+1
             except Exception as e:
-                pass
+                print("Error en viewsCaducidades.insertCaducidades | Caducidad sin idProducto no se inserto: ", e, caducidad)
             
     return({
         'status': 'success',
@@ -133,9 +133,11 @@ def createCaducidadesOdoo(request):
     try:
         #Obtiene el id de todos los productos que hay en Postgres
         productsPSQL = Productos.objects.all().values_list('idProducto', flat=True)
+        caducidadesIDs = Caducidades.objects.all().values_list('id', flat=True)
         
         #Obtiene todas las caducidades que hay en Odoo
-        caducidadesOdoo=ctrCaducidades.get_newCaducidades()
+        caducidadesOdoo=ctrCaducidades.get_newCaducidades(list(caducidadesIDs))
+        
         
         if caducidadesOdoo['status'] == 'success':
             #Llama a la funcion insert caducidades y le pasa la lista de ID's y las caducidades de Odoo
@@ -181,9 +183,10 @@ def createCaducidadesOdoo(request):
 #           La función retorna todas las caducidades que se hayan actualizado en Odoo
 # --------------------------------------------------------------------------------------------------
 def updateCaducidadesOdoo(request):
-    try:        
+    try:
+        caducidadesIDs = Caducidades.objects.all().values_list('id', flat=True)
         #Obtiene todas las caducidades que hay en Odoo
-        caducidadesOdoo=ctrCaducidades.update_Caducidades()
+        caducidadesOdoo=ctrCaducidades.update_Caducidades(list(caducidadesIDs))
         
         if caducidadesOdoo['status'] == 'success':
             caducidades=0
@@ -197,8 +200,8 @@ def updateCaducidadesOdoo(request):
                     #guarda los cambios
                     caducidadObj.save()
                     caducidades=caducidades+1
-                except:
-                    pass
+                except Exception as e:
+                    print("Error en viewsCaducidades.updateCaducidadesOdoo | Caducidad no se actualizo: ", e, caducidad)
                 
             return JsonResponse({
                 'status'  : 'success',
