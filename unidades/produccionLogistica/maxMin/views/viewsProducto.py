@@ -173,7 +173,7 @@ def createProductsOdoo(request):
     try:
         productosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
         #Traer los productos que existen de odoo        
-        productsOdoo = ctrProducto.get_newProducts()
+        productsOdoo = ctrProducto.get_newProducts(list(productosIDs))
         if productsOdoo['status'] == "success":
 
             response = insertProducts(productsOdoo['products'])
@@ -230,6 +230,7 @@ def createProductsOdoo(request):
 # --------------------------------------------------------------------------------------------------
 def updateProductsOdoo(request):
     try:
+        productosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
         # Productos de Odoo
         productsOdoo = ctrProducto.get_updateProducts(list(productosIDs))
         

@@ -124,8 +124,9 @@ def pullClientesOdoo(request):
 # --------------------------------------------------------------------------------------------------
 def createClientesOdoo(request):
     try:
+        clientesIDs = Clientes.objects.all().values_list('idCliente', flat=True)
         #Traer todos los clientes de Odoo
-        clientesOdoo=ctrCliente.get_newClients()
+        clientesOdoo=ctrCliente.get_newClients(list(clientesIDs))
         
         if clientesOdoo['status'] == 'success':
             
@@ -172,8 +173,9 @@ def createClientesOdoo(request):
 # --------------------------------------------------------------------------------------------------
 def updateClientesOdoo(request):
     try:
+        clientesIDs = Clientes.objects.all().values_list('idCliente', flat=True)
         #Traer todos los clientes de Odoo que se actualizaron
-        clientesOdoo=ctrCliente.get_updateClients()
+        clientesOdoo=ctrCliente.get_updateClients(list(clientesIDs))
         
         clientesObj = {c.idCliente: c for c in Clientes.objects.all()}
         clientesUpdate = []

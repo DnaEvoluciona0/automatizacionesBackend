@@ -55,8 +55,27 @@ def get_allInsumos():
             {  'fields' : ['id', 'name', 'default_code', 'qty_available', 'product_brand_id', 'categ_id', 'route_ids', 'product_variant_id', 'purchase_ok', 'create_date', 'active'] }
         )
         
+        insumosNoID = [insumo['id'] for insumo in insumosOdoo if not insumo['active']]             
+        
+        variants = {}
+        if insumosNoID:
+            variantIDs = conOdoo.models.execute_kw(
+                conOdoo.db, conOdoo.uid, conOdoo.password,
+                'product.product', 'search_read',
+                [[
+                    ('active', '=', False), 
+                    ('product_tmpl_id', 'in', insumosNoID)
+                ]],
+                {'fields': ['id', 'product_tmpl_id']}
+            )
+            variants = {v['product_tmpl_id'][0]: v['id'] for v in variantIDs}
+            
+            # Asignar variants faltantes
+            for insumo in insumosOdoo:
+                if not insumo.get('product_variant_id') and insumo['id'] in variants:
+                    insumo['product_variant_id'] = [variants[insumo['id']], '']
+                
         idsT = [insumo['id'] for insumo in insumosOdoo]
-        ids = [insumo['product_variant_id'][0] for insumo in insumosOdoo if insumo['product_variant_id']]
             
         # Obtener reglas de maximos y minimos
         orderpointsOdoo = conOdoo.models.execute_kw(
@@ -65,7 +84,6 @@ def get_allInsumos():
             [[('product_tmpl_id', 'in', idsT)]],
             {  'fields' : ['product_tmpl_id', 'product_min_qty', 'product_max_qty']  }
         )
-        
         orderpoints = {op['product_tmpl_id'][0]: op for op in orderpointsOdoo}
             
         # Obtener reglas de proveedores
@@ -75,23 +93,35 @@ def get_allInsumos():
             [[('product_tmpl_id', 'in', idsT)]],
             {  'fields' : ['product_tmpl_id', 'partner_id', 'delay'] }
         )
-        
         providers = {prov['product_tmpl_id'][0]: prov for prov in providersOdoo}
         
         existenciasOCOdoo = conOdoo.models.execute_kw(
             conOdoo.db, conOdoo.uid, conOdoo.password,
             'purchase.order.line', 'search_read',
-            [[('product_id', 'in', ids)]],
-            {  'fields' : ['product_id', 'product_qty'], 'limit':1 }
+            [[
+                ('display_type', 'not in', ['line_note', 'line_section']),
+                ('state', '!=', 'done'),
+                ('order_id.state', 'not in', ['draft', 'sent']),
+                ('order_id.receipt_status', '!=', 'full'),
+                ('order_id.user_id', '=', 46)
+            ]],
+            {  'fields' : ['product_id', 'product_qty', 'qty_received', 'display_type']}
         )
+        existenciasOC = {}
         
-        existenciasOC = {oc['product_id'][0]: oc for oc in existenciasOCOdoo}
+        for oc in existenciasOCOdoo:
+            number = oc['product_qty'] - oc['qty_received']
+            if oc['product_id'][0] not in existenciasOC and number > 0:
+                existenciasOC[oc['product_id'][0]] = number
+                
+            elif oc['product_id'][0] in existenciasOC:
+                existenciasOC[oc['product_id'][0]] += number
         
         # Por cada producto encontrado que cumpla las reglas, relaciona los valores con las 
         # reglas de maximos y minimos (orderpoints) y los proveedores (poviders)
         for insumo in insumosOdoo:
             insumo_id = insumo['id']
-            variant_id = insumo['product_variant_id'][0] if insumo['product_variant_id'] else 0
+            variant_id = insumo['product_variant_id'][0] if insumo.get('product_variant_id') else 0
             
             orderpoint = orderpoints.get(insumo_id, {})
             insumo['product_min_qty'] = orderpoint.get('product_min_qty', 0)
@@ -100,13 +130,11 @@ def get_allInsumos():
             provider = providers.get(insumo_id, {})
             insumo['provider'] = provider.get('partner_id', ['None', 'Sin proveedor'])[1]
             insumo['delay'] = provider.get('delay', 0)
+            
+            oc = existenciasOC.get(variant_id, 0)
     
-            if variant_id:
-                oc = existenciasOC.get(variant_id, {})
-                insumo['oc'] = oc.get('product_qty', 0)
-            else:
-                insumo['oc'] = 0
-                
+            insumo['oc'] = oc if oc > 0 else 0
+
         return ({
             'status'   : 'success',
             'products' : insumosOdoo
@@ -146,8 +174,7 @@ def get_allInsumos():
 #   - Caso error: 
 #       En caso de haber ocurrido algun error retorna un JSON con status error y el mensaje del error
 # --------------------------------------------------------------------------------------------------
-def get_newInsumos():
-    lastDay = (datetime.today() - timedelta(days=1) + timedelta(hours=6)).strftime("%Y-%m-%d 00:00:00")
+def get_newInsumos(insumosIDs):
     #!Determinamos si existe conexión con odoo
     if not conOdoo.models:
         return ({
@@ -162,7 +189,7 @@ def get_newInsumos():
             conOdoo.db, conOdoo.uid, conOdoo.password,
             'product.template', 'search_read', 
             [[
-                ('create_date', '>=', lastDay),
+                ('id', 'not in', insumosIDs),
                 '|', ('active', '=', True), ('active', '=', False), 
                 ('categ_id', 'ilike', 'INSUMO'), 
                 ('categ_id.parent_id', 'not ilike', 'AGENCIA DIGITAL'), 
@@ -173,8 +200,27 @@ def get_newInsumos():
             {  'fields' : ['id', 'name', 'default_code', 'qty_available', 'product_brand_id', 'categ_id', 'route_ids', 'product_variant_id', 'purchase_ok', 'create_date', 'active'] }
         )
         
+        insumosNoID = [insumo['id'] for insumo in insumosOdoo if not insumo['active']]             
+        
+        variants = {}
+        if insumosNoID:
+            variantIDs = conOdoo.models.execute_kw(
+                conOdoo.db, conOdoo.uid, conOdoo.password,
+                'product.product', 'search_read',
+                [[
+                    ('active', '=', False), 
+                    ('product_tmpl_id', 'in', insumosNoID)
+                ]],
+                {'fields': ['id', 'product_tmpl_id']}
+            )
+            variants = {v['product_tmpl_id'][0]: v['id'] for v in variantIDs}
+            
+            # Asignar variants faltantes
+            for insumo in insumosOdoo:
+                if not insumo.get('product_variant_id') and insumo['id'] in variants:
+                    insumo['product_variant_id'] = [variants[insumo['id']], '']
+                
         idsT = [insumo['id'] for insumo in insumosOdoo]
-        ids = [insumo['product_variant_id'][0] for insumo in insumosOdoo if insumo['product_variant_id']]
             
         # Obtener reglas de maximos y minimos
         orderpointsOdoo = conOdoo.models.execute_kw(
@@ -183,7 +229,6 @@ def get_newInsumos():
             [[('product_tmpl_id', 'in', idsT)]],
             {  'fields' : ['product_tmpl_id', 'product_min_qty', 'product_max_qty']  }
         )
-        
         orderpoints = {op['product_tmpl_id'][0]: op for op in orderpointsOdoo}
             
         # Obtener reglas de proveedores
@@ -193,23 +238,35 @@ def get_newInsumos():
             [[('product_tmpl_id', 'in', idsT)]],
             {  'fields' : ['product_tmpl_id', 'partner_id', 'delay'] }
         )
-        
         providers = {prov['product_tmpl_id'][0]: prov for prov in providersOdoo}
         
         existenciasOCOdoo = conOdoo.models.execute_kw(
             conOdoo.db, conOdoo.uid, conOdoo.password,
             'purchase.order.line', 'search_read',
-            [[('product_id', 'in', ids)]],
-            {  'fields' : ['product_id', 'product_qty'], 'limit':1 }
+            [[
+                ('display_type', 'not in', ['line_note', 'line_section']),
+                ('state', '!=', 'done'),
+                ('order_id.state', 'not in', ['draft', 'sent']),
+                ('order_id.receipt_status', '!=', 'full'),
+                ('order_id.user_id', '=', 46)
+            ]],
+            {  'fields' : ['product_id', 'product_qty', 'qty_received', 'display_type']}
         )
+        existenciasOC = {}
         
-        existenciasOC = {oc['product_id'][0]: oc for oc in existenciasOCOdoo}
+        for oc in existenciasOCOdoo:
+            number = oc['product_qty'] - oc['qty_received']
+            if oc['product_id'][0] not in existenciasOC and number > 0:
+                existenciasOC[oc['product_id'][0]] = number
+                
+            elif oc['product_id'][0] in existenciasOC:
+                existenciasOC[oc['product_id'][0]] += number
         
         # Por cada producto encontrado que cumpla las reglas, relaciona los valores con las 
         # reglas de maximos y minimos (orderpoints) y los proveedores (poviders)
         for insumo in insumosOdoo:
             insumo_id = insumo['id']
-            variant_id = insumo['product_variant_id'][0] if insumo['product_variant_id'] else 0
+            variant_id = insumo['product_variant_id'][0] if insumo.get('product_variant_id') else 0
             
             orderpoint = orderpoints.get(insumo_id, {})
             insumo['product_min_qty'] = orderpoint.get('product_min_qty', 0)
@@ -218,13 +275,11 @@ def get_newInsumos():
             provider = providers.get(insumo_id, {})
             insumo['provider'] = provider.get('partner_id', ['None', 'Sin proveedor'])[1]
             insumo['delay'] = provider.get('delay', 0)
+            
+            oc = existenciasOC.get(variant_id, 0)
     
-            if variant_id:
-                oc = existenciasOC.get(variant_id, {})
-                insumo['oc'] = oc.get('product_qty', 0)
-            else:
-                insumo['oc'] = 0
-                
+            insumo['oc'] = oc if oc > 0 else 0
+
         return ({
             'status'   : 'success',
             'products' : insumosOdoo

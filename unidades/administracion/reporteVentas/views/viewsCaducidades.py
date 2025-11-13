@@ -132,7 +132,8 @@ def createCaducidadesOdoo(request):
         caducidadesIDs = Caducidades.objects.all().values_list('idCaducidad', flat=True)
         
         #Obtiene todas las caducidades que hay en Odoo
-        caducidadesOdoo=ctrCaducidades.get_newCaducidades()
+        caducidadesOdoo=ctrCaducidades.get_newCaducidades(list(caducidadesIDs))
+        
         
         if caducidadesOdoo['status'] == 'success':
             #Llama a la funcion insert caducidades y le pasa la lista de ID's y las caducidades de Odoo
@@ -181,7 +182,7 @@ def updateCaducidadesOdoo(request):
     try:
         caducidadesIDs = Caducidades.objects.all().values_list('idCaducidad', flat=True)
         #Obtiene todas las caducidades que hay en Odoo
-        caducidadesOdoo=ctrCaducidades.update_Caducidades()
+        caducidadesOdoo=ctrCaducidades.update_Caducidades(list(caducidadesIDs))
         
         caducidadesObj = {c.idCaducidad: c for c in Caducidades.objects.all()}
         caducidadesUpdate = []

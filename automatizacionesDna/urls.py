@@ -29,7 +29,7 @@ from unidades.administracion.reporteVentas.views.viewsCaducidades import pullCad
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    #!Rutas de productos
+    #!Rutas de productos e insumos
     path('auto/pullProductsOdoo/', pullProductsOdoo),
     path('auto/pullInsumosOdoo/', pullInsumosOdoo),
     path('auto/pullProductsExcel/', pullProductsExcel),
@@ -37,7 +37,7 @@ urlpatterns = [
     path('auto/createInsumosOdoo/', createInsumosOdoo),
     path('auto/updateProductsOdoo/', updateProductsOdoo),
     path('auto/updateInsumosOdoo/', updateInsumosOdoo),
-
+    
     #!Rutas para MaterialesPI
     path('auto/pullMaterialPIOdoo/', pullMaterialPIOdoo),
     
@@ -48,15 +48,16 @@ urlpatterns = [
     
     #!Rutas para Clientes
     path('auto/pullClientesOdoo/', pullClientesOdoo),
+    path('auto/pullClientesExcel/', pullClientesExcel),
     path('auto/createClientesOdoo/', createClientesOdoo),
     path('auto/updateClientesOdoo/', updateClientesOdoo),
-    path('auto/pullClientesExcel/', pullClientesExcel),
     
     #!Rutas para Ventas
     path('auto/pullVentasOdoo/', pullVentasOdoo),
     path('auto/pullVentasExcel/', pullVentasExcel),
     path('auto/createVentasOdoo/', createVentasOdoo),
     path('auto/pullVentasExcel/', pullVentasExcel),
+    path('auto/createVentasOdoo/', createVentasOdoo),
     
     #!Rutas Actualizar Max y Min Insumos
     #!path('auto/updatemaxmin/', updateMinMax),

@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
                 ),
                 ("cantidad", models.FloatField()),
                 (
-                    "idHijo",
+                    "hijo",
                     models.ForeignKey(
                         null=True,
                         on_delete=django.db.models.deletion.CASCADE,
@@ -54,7 +54,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "idPadre",
+                    "padre",
                     models.ForeignKey(
                         null=True,
                         on_delete=django.db.models.deletion.CASCADE,

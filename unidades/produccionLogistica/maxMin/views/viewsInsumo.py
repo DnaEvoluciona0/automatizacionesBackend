@@ -162,8 +162,9 @@ def pullInsumosOdoo(request):
 # --------------------------------------------------------------------------------------------------
 def createInsumosOdoo(request):
     try:
+        insumosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
         #traemos los productos nuevos de odoo
-        insumosOdoo = ctrInsumo.get_newInsumos()
+        insumosOdoo = ctrInsumo.get_newInsumos(list(insumosIDs))
         if insumosOdoo['status'] == 'success':
 
             response = insertInsumos(insumosOdoo['products'])

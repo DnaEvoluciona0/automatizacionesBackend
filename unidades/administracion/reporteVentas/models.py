@@ -19,6 +19,7 @@ class Ventas(models.Model):
     idVenta = models.CharField(max_length=20, primary_key=True)
     fecha = models.DateTimeField()
     cliente = models.ForeignKey(Clientes, related_name="ventasCliente", on_delete=models.CASCADE)
+    tipoCliente=models.CharField(max_length=20, default="Cliente Nuevo")
     paisVenta = models.CharField(max_length=100)
     estadoVenta = models.CharField(max_length=100)
     ciudadVenta = models.CharField(max_length=200)
@@ -29,22 +30,11 @@ class Ventas(models.Model):
     class Meta:
         db_table = '"administracion"."ventas"'
 
-#? Tabla de ventasPVA en el esquema de produccionLogistica
-class VentasPVA(models.Model):
-    fecha = models.DateTimeField()
-    producto = models.ForeignKey(Productos, related_name="ventasPVProducto", on_delete=models.CASCADE, null=True)
-    cantidad = models.BigIntegerField()
-    
-    class Meta:
-        db_table = '"produccionlogistica"."ventaspva"'
-
 #? Tabla de ventasPVH en el esquema de administracion
 class VentasPVH(models.Model):
-    venta = models.ForeignKey(Ventas, related_name="ventasPVVenta", on_delete=models.CASCADE)
-    nombre = models.CharField(max_length=100)
-    sku = models.CharField(max_length=20)
-    marca = models.CharField(max_length=50)
-    categoria = models.CharField(max_length=100, default="")
+    idPVH = models.BigAutoField(primary_key=True)
+    venta = models.ForeignKey(Ventas, related_name="ventasPVHVenta", on_delete=models.CASCADE)
+    producto = models.ForeignKey(Productos, related_name="ventasPVHProducto", on_delete=models.CASCADE, null=True)
     cantidad = models.BigIntegerField()
     precioUnitario = models.DecimalField(decimal_places=2, max_digits=20)
     subtotal = models.DecimalField(decimal_places=2, max_digits=20)

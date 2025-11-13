@@ -3,6 +3,7 @@ from unidades.administracion.reporteVentas.models import Ventas, Clientes
 from unidades.administracion.reporteVentas.views.viewsLineaPV import insertLineaVentaOdoo
 from unidades.administracion.reporteVentas.controllers import ctrVentas
 from unidades.produccionLogistica.maxMin.models import Productos
+from datetime import datetime
 
 # --------------------------------------------------------------------------------------------------
 # * Función: insertVentas
@@ -22,7 +23,6 @@ from unidades.produccionLogistica.maxMin.models import Productos
 def insertVentas(ventas):
     #Llamar a las ventas, productos e insumos ya existentes en Postgres
     ventasPSQL = Ventas.objects.all().values_list('idVenta', flat=True)
-    productosPSQL = Productos.objects.all().values_list('idProductoTmp', flat=True)
     
     clientesObj = {c.idCliente: c for c in Clientes.objects.all()}
     
@@ -37,7 +37,6 @@ def insertVentas(ventas):
     
     for venta in ventas:
         if venta['name'] not in ventasPSQL:
-            contador+=len(venta['productsLines'])
             #Asignamos la distribución de la información en sus respectivas variables
             #Obtenemos al cliente
             clienteObj = clientesObj.get(venta['partner_id'][0])
@@ -177,9 +176,10 @@ def pullVentasOdoo(request):
 # --------------------------------------------------------------------------------------------------        
 def createVentasOdoo(request):
     try:
+        ventasIDs = Ventas.objects.all().values_list('idVenta', flat=True)
         
         #Traer todos los clientes de Odoo
-        ventasOdoo=ctrVentas.get_newSales()
+        ventasOdoo=ctrVentas.get_newSales(list(ventasIDs))
         
         if ventasOdoo['status'] == 'success':
             

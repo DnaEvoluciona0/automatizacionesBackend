@@ -42,7 +42,7 @@ class Migration(migrations.Migration):
                 ("fechaCaducidad", models.DateField()),
                 ("cantidad", models.IntegerField()),
                 (
-                    "productoId",
+                    "producto",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="productoCaducidad",
@@ -62,6 +62,10 @@ class Migration(migrations.Migration):
                     models.CharField(max_length=20, primary_key=True, serialize=False),
                 ),
                 ("fecha", models.DateTimeField()),
+                (
+                    "tipoCliente",
+                    models.CharField(default="Cliente Nuevo", max_length=20),
+                ),
                 ("paisVenta", models.CharField(max_length=100)),
                 ("estadoVenta", models.CharField(max_length=100)),
                 ("ciudadVenta", models.CharField(max_length=200)),
@@ -69,7 +73,7 @@ class Migration(migrations.Migration):
                 ("vendedor", models.CharField(max_length=200)),
                 ("total", models.DecimalField(decimal_places=2, max_digits=20)),
                 (
-                    "idCliente",
+                    "cliente",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="ventasCliente",
@@ -82,49 +86,9 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name="VentasPVA",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("fecha", models.DateTimeField()),
-                ("cantidad", models.BigIntegerField()),
-                (
-                    "idProducto",
-                    models.ForeignKey(
-                        null=True,
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="ventasPVProducto",
-                        to="maxMin.productos",
-                    ),
-                ),
-            ],
-            options={
-                "db_table": '"produccionlogistica"."ventaspva"',
-            },
-        ),
-        migrations.CreateModel(
             name="VentasPVH",
             fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("nombre", models.CharField(max_length=100)),
-                ("sku", models.CharField(max_length=20)),
-                ("marca", models.CharField(max_length=50)),
-                ("categoria", models.CharField(default="", max_length=100)),
+                ("idPVH", models.BigAutoField(primary_key=True, serialize=False)),
                 ("cantidad", models.BigIntegerField()),
                 (
                     "precioUnitario",
@@ -132,10 +96,19 @@ class Migration(migrations.Migration):
                 ),
                 ("subtotal", models.DecimalField(decimal_places=2, max_digits=20)),
                 (
-                    "idVenta",
+                    "producto",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="ventasPVHProducto",
+                        to="maxMin.productos",
+                    ),
+                ),
+                (
+                    "venta",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
-                        related_name="ventasPVVenta",
+                        related_name="ventasPVHVenta",
                         to="reporteVentas.ventas",
                     ),
                 ),
