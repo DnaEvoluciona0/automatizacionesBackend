@@ -24,19 +24,51 @@ def insertVentas(ventas):
     ventasPSQL = Ventas.objects.all().values_list('idVenta', flat=True)
     productosPSQL = Productos.objects.all().values_list('idProductoTmp', flat=True)
     
+    clientesObj = {c.idCliente: c for c in Clientes.objects.all()}
+    
+    ultimasVentas = {}
+            
+    ventasCreate = []
+    clientesUpdate = []
+    ventasPVCreate= []
+    
     newVentas = 0
     newNota = 0
     
-    contador=0
-
     for venta in ventas:
         if venta['name'] not in ventasPSQL:
             contador+=len(venta['productsLines'])
             #Asignamos la distribución de la información en sus respectivas variables
-            try:
-                #Obtenemos al cliente
-                clienteObj = Clientes.objects.get(idCliente = venta['partner_id'][0])
-                ventaID=Ventas.objects.create(
+            #Obtenemos al cliente
+            clienteObj = clientesObj.get(venta['partner_id'][0])
+            
+            #Factura
+            if venta['move_type'] == 'out_invoice':
+                newVentas=newVentas+1
+                clienteObj.numTransacciones+=1
+            #Nota de credito
+            if venta['move_type'] == 'out_refund':
+                newNota=newNota+1
+
+        
+            ventaRec = ultimasVentas.get(clienteObj.idCliente)['invoice_date'] if ultimasVentas.get(clienteObj.idCliente) else None
+            ventaAct = venta['invoice_date']
+            
+            if clienteObj.numTransacciones < 2:
+                clienteObj.tipoCliente = 'Cliente Nuevo'
+            else:
+                if ventaRec:
+                    if clienteObj.tipoCliente == 'Cliente Nuevo' and ventaAct.month == ventaRec.month and ventaAct.year == ventaRec.year:
+                        clienteObj.tipoCliente = 'Cliente Nuevo'
+                    elif (ventaAct - ventaRec).days >180:
+                        clienteObj.tipoCliente = 'Cliente Recuperado'
+                    else:
+                        if clienteObj.tipoCliente == 'Cliente Recuperado' and ventaAct.month == ventaRec.month and ventaAct.year == ventaRec.year:
+                            clienteObj.tipoCliente = 'Cliente Recuperado'
+                        clienteObj.tipoCliente = 'Cliente Cartera'
+                
+            ventasCreate.append(
+                Ventas(
                     idVenta         = venta['name'],
                     fecha           = venta['invoice_date'],
                     ciudadVenta     = venta['city'],
@@ -45,29 +77,33 @@ def insertVentas(ventas):
                     unidad          = venta['branch_id'][1] if venta['branch_id'] else "",
                     vendedor        = venta['invoice_user_id'][1],
                     total           = venta['amount_total_signed'],
-                    cliente         = clienteObj
+                    cliente         = clienteObj,
+                    tipoCliente     = clienteObj.tipoCliente
                 )
-                #Llamamos a pull linea ventas para registrar todos los productos en Postgres
-                insertLineaVentaOdoo(venta['productsLines'], ventaID, venta['invoice_date'], productosPSQL)
-                #Factura
-                if venta['move_type'] == 'out_invoice':
-                    newVentas=newVentas+1
-                #Nota de credito
-                if venta['move_type'] == 'out_refund':
-                    newNota=newNota+1
-                    
-                #Sumamos una nueva venta en el cliente
-                clienteObj.numTransacciones+=1
-                if clienteObj.numTransacciones >= 2:
-                    clienteObj.tipoCliente = 'Cartera'
-                else:
-                    clienteObj.tipoCliente = 'Cliente Nuevo'
-                #Guardamos los cambios
-                """clienteObj.save()"""
-                
-            except Exception as e:
-                print("Ventas", e, venta)
-    print("lineas colocadas", contador)
+            )
+            
+            ventasPVCreate.extend(venta['productsLines'])
+            
+            clientesUpdate.append(clienteObj)
+            
+            ultimasVentas[clienteObj.idCliente] = venta
+
+    try:
+        Ventas.objects.bulk_create(ventasCreate, batch_size=1000)
+        Clientes.objects.bulk_update(
+            clientesUpdate,
+            ['tipoCliente', 'numTransacciones'],
+            batch_size=1000
+        )
+        #Llamamos a pull linea ventas para registrar todos los productos en Postgres
+        insertLineaVentaOdoo(ventasPVCreate)
+    except:
+        try:
+            for venta in ventasCreate:
+                venta.save()       
+        except Exception as e:
+            print("Error en viewsVentas.insertLVentas | Venta no se inserto: ", e, venta)
+
     return({
         'status'  : 'success',
         'message' : [newVentas, newNota, (newVentas + newNota)]

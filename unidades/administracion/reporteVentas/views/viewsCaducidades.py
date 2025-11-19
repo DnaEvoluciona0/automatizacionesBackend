@@ -18,44 +18,40 @@ from datetime import datetime
 #
 # --------------------------------------------------------------------------------------------------
 def insertCaducidades(productos, caducidades):
+    caducidadesPSQL = Caducidades.objects.all().values_list('idCaducidad', flat=True)
     
-    caducidadesPSQL = Caducidades.objects.all().values_list('id', flat=True)
-    error = 0
+    productosObj = {p.idProducto: p for p in Productos.objects.all()}
+    caducidadesCreate = []
     newCaducidad=0
     for caducidad in caducidades:
+        
         if caducidad['product_id'][0] in productos and caducidad['id'] not in caducidadesPSQL:
-            #Evita que caducidades que no sean una fecha se agreguen a la base de datos
+            #Convierte el nombre en una fecha válida
             try:
-                #Convierte el nombre en una fecha válida
                 fecha = datetime.strptime(caducidad['name'].strip().replace('–', '-').replace('—', '-').replace('‑', '-'), "%d-%m-%Y")
-                productoObj = Productos.objects.get(idProducto=caducidad['product_id'][0])
+                productoObj = productosObj.get(caducidad['product_id'][0])
                 #Inserta la informacion en la tabla Caducidades
-                Caducidades.objects.create(
-                    id=caducidad['id'],
-                    fechaCaducidad = fecha,
-                    cantidad = caducidad['product_qty'],
-                    producto = productoObj
+                caducidadesCreate.append(
+                    Caducidades(
+                        idCaducidad = caducidad['id'],
+                        fechaCaducidad = fecha,
+                        cantidad = caducidad['product_qty'],
+                        producto = productoObj
+                    )
                 )
-                newCaducidad=newCaducidad+1
             except:
                 pass
-                
-        if caducidad['product_id'][0] not in productos:
-            try:
-                #Convierte el nombre en una fecha válida
-                skuP = caducidad['product_id'][1].split("]")[0].replace("[", "")
-                fecha = datetime.strptime(caducidad['name'].strip().replace('–', '-').replace('—', '-').replace('‑', '-'), "%d-%m-%Y")
-                productoObj = Productos.objects.get(sku=skuP)
-                #Inserta la informacion en la tabla Caducidades
-                Caducidades.objects.create(
-                    id=caducidad['id'],
-                    fechaCaducidad = fecha,
-                    cantidad = caducidad['product_qty'],
-                    producto = productoObj
-                )
-                newCaducidad=newCaducidad+1
-            except Exception as e:
-                pass
+    
+    try:
+        Caducidades.objects.bulk_create(caducidadesCreate, batch_size=1000)
+        newCaducidad+=len(caducidadesCreate)
+    except:
+        try:
+            for caducidades in caducidadesCreate:
+                caducidades.save()
+                newCaducidad+=1
+        except Exception as e:
+            print("Error en viewsCaducidades.insertCaducidades | Caducidad con idProducto no se inserto: ", e, caducidad)
             
     return({
         'status': 'success',
@@ -133,6 +129,7 @@ def createCaducidadesOdoo(request):
     try:
         #Obtiene el id de todos los productos que hay en Postgres
         productsPSQL = Productos.objects.all().values_list('idProducto', flat=True)
+        caducidadesIDs = Caducidades.objects.all().values_list('idCaducidad', flat=True)
         
         #Obtiene todas las caducidades que hay en Odoo
         caducidadesOdoo=ctrCaducidades.get_newCaducidades()
@@ -181,28 +178,43 @@ def createCaducidadesOdoo(request):
 #           La función retorna todas las caducidades que se hayan actualizado en Odoo
 # --------------------------------------------------------------------------------------------------
 def updateCaducidadesOdoo(request):
-    try:        
+    try:
+        caducidadesIDs = Caducidades.objects.all().values_list('idCaducidad', flat=True)
         #Obtiene todas las caducidades que hay en Odoo
         caducidadesOdoo=ctrCaducidades.update_Caducidades()
         
+        caducidadesObj = {c.idCaducidad: c for c in Caducidades.objects.all()}
+        caducidadesUpdate = []
+        updatedCaducidades = 0
+        
         if caducidadesOdoo['status'] == 'success':
-            caducidades=0
+            
             for caducidad in caducidadesOdoo['caducidades']:
+                #Busca la caducidad mediante su id
+                caducidadObj = caducidadesObj.get(caducidad['id'])
+                #Modifica los campos que necesitamos
+                caducidadObj.cantidad = caducidad['product_qty']
+                
+                caducidadesUpdate.append(caducidadObj)
+            
+            try:
+                Caducidades.objects.bulk_update(
+                    caducidadesUpdate,
+                    ['cantidad'],
+                    batch_size=1000
+                )
+                updatedCaducidades+=len(caducidadesUpdate)
+            except:
                 try:
-                    #Busca la caducidad mediante su id
-                    caducidadObj = Caducidades.objects.get(id=caducidad['id'])
-                    #Modifica los campos que necesitamos
-                    caducidadObj.cantidad=caducidad['product_qty']
-                    
-                    #guarda los cambios
-                    caducidadObj.save()
-                    caducidades=caducidades+1
-                except:
-                    pass
+                    for caducidad in caducidadesUpdate:
+                        caducidad.save()
+                        updatedCaducidades+=1
+                except Exception as e:
+                    print("Error en viewsCaducidades.updateCaducidadesOdoo | Caducidad no se actualizo: ", e, caducidad)
                 
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se modificaron {caducidades} de {len(caducidadesOdoo['caducidades'])}'
+                'message' : f'Se modificaron {updatedCaducidades} de {len(caducidadesOdoo['caducidades'])}'
             })
             
         else:

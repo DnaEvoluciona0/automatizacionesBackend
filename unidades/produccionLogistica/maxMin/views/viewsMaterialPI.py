@@ -28,38 +28,48 @@ def getMaterialsPIPSQL(request):
 #     - Caso error:
 #           
 # --------------------------------------------------------------------------------------------------
-def pullMaterialPi(request):
-
+def pullMaterialPIOdoo(request):
     try:
-        result = ctrMaterialPI.getInsumoByProduct()
+        materialPI = ctrMaterialPI.getInsumoByProduct()
+        materiales = {m.idProductoTmp: m for m in Productos.objects.all()}
+        materialesAssign = []
+        assignedMateriales = 0
 
-        if result['status'] == 'success':
+        if materialPI['status'] == 'success':
 
             MaterialPI.objects.all().delete()
 
-            cantidadPI = 0
-            for material in result['materiales']:
-                try:
-                    padreId = Productos.objects.get(idProductoTmp=material['parent_product_tmpl_id'][0])
+            for material in materialPI['materiales']:
+                    padreId = materiales.get(material['parent_product_tmpl_id'][0])
+                    hijoId = materiales.get(material['product_tmpl_id'][0])
                     
-                    hijoId = Productos.objects.get(idProductoTmp=material['product_tmpl_id'][0])
-                    
-                    createMaterialPI = MaterialPI.objects.create(
-                        idPadre = padreId,
-                        idHijo = hijoId,
-                        cantidad = material['product_qty']
+                    materialesAssign.append(
+                        MaterialPI(
+                            idMaterialPI = material['id'],
+                            padre = padreId,
+                            hijo = hijoId,
+                            cantidad = material['product_qty']
+                        )
                     )
-                    cantidadPI+=1
-                except:
-                    pass
+                    
+            try:
+                MaterialPI.objects.bulk_create(materialesAssign, batch_size=1000)
+                assignedMateriales+=len(materialesAssign)
+            except:
+                try:
+                    for material in materialesAssign:
+                        material.save()
+                        assignedMateriales+=1
+                except Exception as e:
+                    print("Error en viewsMaterialPI.pullMaterialPi | Material no se inserto: ", e, material)
                     
             return JsonResponse({
                 'status' : 'success',
-                'message' : f'Se han cargado {cantidadPI} materiales de productos de {len(result['materiales'])}'
+                'message' : f'Se han cargado {assignedMateriales} materiales de productos de {len(materialPI['materiales'])}'
             })
         return JsonResponse({
             'status'  : 'error',
-            'message' : result['materiales']
+            'message' : materialPI['materiales']
         })
 
     except Exception as e:

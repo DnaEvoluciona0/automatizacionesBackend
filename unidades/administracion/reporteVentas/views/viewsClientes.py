@@ -20,25 +20,37 @@ def insertClients(clients):
     #Obtenemos todos los ids de clientes de Postgres
     clientesPSQL = Clientes.objects.all().values_list('idCliente', flat=True)
     
+    clientesCreate = []
     newClientes = 0
     
     for cliente in clients:
+        
         #Si el id no esta en la base de datos lo agrega
         if cliente['id'] not in clientesPSQL:
-            try:
+            
                 #Asignamos la distribución de la información en sus respectivas variables
-                Clientes.objects.create(
-                    idCliente           = cliente['id'],
-                    nombre              = cliente['name'] if cliente['name']!=False else "",
-                    ciudad              = cliente['city'] if cliente['city']!=False else "",
-                    estado              = cliente['state_id'][1] if cliente['state_id']!=False else "",
-                    pais                = cliente['country_id'][1] if cliente['country_id']!=False else "",
-                    tipoCliente         = "Cliente Nuevo",
-                    numTransacciones    = 0
+                clientesCreate.append(
+                    Clientes(
+                        idCliente           = cliente['id'],
+                        nombre              = cliente['name'] if cliente['name']!=False else "",
+                        ciudad              = cliente['city'] if cliente['city']!=False else "",
+                        estado              = cliente['state_id'][1] if cliente['state_id']!=False else "",
+                        pais                = cliente['country_id'][1] if cliente['country_id']!=False else "",
+                        tipoCliente         = "Cliente Nuevo",
+                        numTransacciones    = 0
+                    )
                 )
-                newClientes=newClientes+1
-            except:
-                pass
+                    
+    try:
+        Clientes.objects.bulk_create(clientesCreate, batch_size=1000)
+        newClientes+=len(clientesCreate)
+    except:
+        try:
+            for cliente in clientesCreate:
+                cliente.save()
+                newClientes+=1
+        except Exception as e:
+            print("Error en viewsClientes.insertClients | Cliente no se inserto: ", e, cliente)
     
     return ({
         'status'  : 'success',
@@ -163,29 +175,43 @@ def updateClientesOdoo(request):
         #Traer todos los clientes de Odoo que se actualizaron
         clientesOdoo=ctrCliente.get_updateClients()
         
+        clientesObj = {c.idCliente: c for c in Clientes.objects.all()}
+        clientesUpdate = []
+        updatedClientes = 0
+        
         if clientesOdoo['status'] == 'success':
-            newClientes = 0
             
             for cliente in clientesOdoo['clientes']:
+                
+                #Busca el ID del cliente en Postgres
+                clienteObj = clientesObj.get(cliente['id'])
+                
+                #Cambia los valores de la Postgres por los nuevos valores que hay en odoo
+                clienteObj.nombre              = cliente['name'] if cliente['name']!=False else ""
+                clienteObj.ciudad              = cliente['city'] if cliente['city']!=False else ""
+                clienteObj.estado              = cliente['state_id'][1] if cliente['state_id']!=False else ""
+                clienteObj.pais                = cliente['country_id'][1] if cliente['country_id']!=False else ""
+                
+                clientesUpdate.append(clienteObj)
+            
+            try:
+                Clientes.objects.bulk_update(
+                    clientesUpdate,
+                    ['nombre', 'ciudad', 'estado', 'pais'],
+                    batch_size=1000
+                )
+                updatedClientes+=len(clientesUpdate)
+            except:
                 try:
-                    #Busca el ID del cliente en Postgres
-                    clienteObj = Clientes.objects.get(idCliente=cliente['id'])
-                    
-                    #Cambia los valores de la Postgres por los nuevos valores que hay en odoo
-                    clienteObj.nombre              = cliente['name'] if cliente['name']!=False else ""
-                    clienteObj.ciudad              = cliente['city'] if cliente['city']!=False else ""
-                    clienteObj.estado              = cliente['state_id'][1] if cliente['state_id']!=False else ""
-                    clienteObj.pais                = cliente['country_id'][1] if cliente['country_id']!=False else ""
-                    
-                    #Guarda los cambios de cliente
-                    clienteObj.save()
-                    newClientes=newClientes+1
-                except:
-                    pass
+                    for cliente in clientesUpdate:
+                        cliente.save()
+                        updatedClientes+=1
+                except Exception as e:
+                    print("Error en viewsClientes.insertClients | Cliente no se actualizo: ", e, cliente)
             
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se han modificados {newClientes} clientes de {len(clientesOdoo['clientes'])}'
+                'message' : f'Se han modificados {updatedClientes} clientes de {len(clientesOdoo['clientes'])}'
             })
         else:
             return JsonResponse({

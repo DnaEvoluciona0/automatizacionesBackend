@@ -1,4 +1,4 @@
-from unidades.administracion.reporteVentas.models import VentasPVH, VentasPVA
+from unidades.administracion.reporteVentas.models import VentasPVH, Ventas
 from unidades.produccionLogistica.maxMin.models import Productos
 
 # --------------------------------------------------------------------------------------------------
@@ -22,64 +22,57 @@ from unidades.produccionLogistica.maxMin.models import Productos
 #     - Si "move_type" es igual a "out_invoice", significa que es una venta completada.
 #     - Si "move_type" es igual a "out_refund", significa que es una nota de crédito.
 # --------------------------------------------------------------------------------------------------
-def insertLineaVentaOdoo(productos, idVenta, fechaVenta, productosPSQL):
+def insertLineaVentaOdoo(productos):
+    
+    '''    
+    subtotal = producto['price_subtotal'] if IDVenta.idVenta[0] != 'R' else (producto['price_subtotal']*(-1))
+    '''
+    ventasObj = {v.idVenta: v for v in Ventas.objects.all()}
+    productos_id = {p.idProducto: p for p in Productos.objects.all()}
+    productos_tmp_id = {p.idProductoTmp: p for p in Productos.objects.all()}
+    
+    lineasCreate=[]
+    newLines = 0
     #Para cada producto lo intentara registrar en VentasPVH y Ventas PVA
     for producto in productos:
-        try:
-            if producto['product_id']:
-                #Obtiene el nombre del producto el limpio
-                try:
-                    productoObj = Productos.objects.get(idProducto=producto['product_id'][0])
-                except:
-                    try:
-                        sku = "" if producto['name'].find("]") == -1 else producto['name'][1:producto['name'].find("]")]
-                        productoObj = Productos.objects.get(sku=sku)
-                    except Exception as e:
-                        print("No se encontro", e, producto)
-                if productoObj:
-                    #Lo registra en ventasPVH
-                    try:
-                        VentasPVH.objects.create(
-                            cantidad        = producto['quantity'],
-                            precioUnitario  = producto['price_unit'],
-                            subtotal        = producto['price_subtotal'],
-                            marca           = productoObj.marca,
-                            categoria       = productoObj.categoria,
-                            venta           = idVenta,
-                            nombre          = productoObj.nombre,
-                            sku             = productoObj.sku
-                        )
-                    except Exception as e:
-                        print("VentasPVH", e, producto)
+        if producto['product_id']:
+            #Obtiene el nombre del producto el limpio
+            productoObj = productos_id.get(producto['product_id'][0])
+            
+            ventaObj = ventasObj.get(producto['move_name'])
                     
-                    try:
-                        VentasPVA.objects.create(
-                            fecha           = fechaVenta,
-                            cantidad        = producto['quantity'],
-                            producto        = productoObj
-                        )
-                    except Exception as e:
-                        print("VentasPVA", e, producto)
-                        
-            elif producto['product_id'] == False and (producto['price_subtotal'] != 0 or producto['price_unit'] != 0):
-                try:
-                    VentasPVH.objects.create(
-                            cantidad        = producto['quantity'],
-                            precioUnitario  = producto['price_unit'],
-                            subtotal        = producto['price_subtotal'],
-                            marca           = "",
-                            categoria       = "",
-                            venta           = idVenta,
-                            nombre          = "",
-                            sku             = ""
-                        )
-                except Exception as e:
-                        print("Ventas sin Id", e, producto)
-            else:
-                print("El precio es 0: ", producto)
-                
+            #Lo registra en ventasPVH
+            lineasCreate.append(
+                VentasPVH(
+                    cantidad        = producto['quantity'],
+                    precioUnitario  = producto['price_unit'],
+                    subtotal        = producto['price_subtotal'] if ventaObj.idVenta[0] != 'R' else (producto['price_subtotal']*(-1)),
+                    venta           = ventaObj,
+                    producto        = productoObj
+                )       
+            )   
+        
+        else:
+            lineasCreate.append(
+                VentasPVH(
+                    cantidad        = producto['quantity'],
+                    precioUnitario  = producto['price_unit'],
+                    subtotal        = producto['price_subtotal'] if ventaObj.idVenta[0] != 'R' else (producto['price_subtotal']*(-1)),
+                    venta           = ventaObj
+                )       
+            ) 
+    try:
+        VentasPVH.objects.bulk_create(lineasCreate, batch_size=1000)
+        newLines+=len(lineasCreate)
+    except Exception as e:
+        print('entre al error en lineaPV', e)
+        try:
+            for linea in lineasCreate:
+                linea.save()
+                newLines+=1
         except Exception as e:
-            print("Error general: ", e, producto)
+            print("Error en viewsLineaPV.insertLineaVentaOdoo | VentaPVH no se inserto: ", e, producto)
+                
     #Retorna un exito                
     return({
         'status'  : 'success',

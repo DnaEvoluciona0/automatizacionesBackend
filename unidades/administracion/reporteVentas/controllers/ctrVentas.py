@@ -82,9 +82,8 @@ def get_allSales():
                 ('move_id', 'in', ordersID), 
                 '|', '|', ('account_type', '=', 'income'), ('account_type', '=', 'expense'), ('account_type', '=', False)
             ]],
-            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id']}
+            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id', 'move_name']}
         )
-        print("Se obtuvieron:", len(all_product_line))
         
         #Las guarda todas en un objetos junto con el id de la factura como id principal para encontrarla
         for line in all_product_line:
@@ -217,10 +216,11 @@ def get_newSales():
             'account.move.line', 'search_read', 
             [[
                 ('move_id', 'in', ordersID),
-                ('product_id', '!=', False),
+                ('display_type', '!=', 'line_note'),
+                ('display_type', '!=', 'cogs'),
                 '|', '|', ('account_type', '=', 'income'), ('account_type', '=', 'expense'), ('account_type', '=', False)
             ]],
-            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id']}
+            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id', 'move_name']}
         )
         
         #Las guarda todas en un objetos junto con el id de la factura como id principal para encontrarla
@@ -342,12 +342,12 @@ def get_VentasExcel():
             for indexP, prod in productos.iterrows():
                 productList.append({
                     'id': indexP, 
-                    'name': '['+prod['SKU']+'] '+prod['nombreProducto'], 
-                    'product_id': str(index), 
+                    'name': prod['nombreProducto'], 
+                    'product_id': [prod['id_odoo'], ''],
                     'quantity': prod['Cantidad facturada'], 
                     'price_unit': prod['Precio unitario'], 
                     'price_subtotal': prod['Total'],
-                    'move_id': prod['idVenta']
+                    'move_name': prod['idVenta']
                 })
                 total=total+prod['Total']
             
