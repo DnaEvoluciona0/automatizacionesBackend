@@ -86,9 +86,8 @@ def get_allSales():
                 ('display_type', '!=', 'cogs'),
                 '|', '|', ('account_type', '=', 'income'), ('account_type', '=', 'expense'), ('account_type', '=', False)
             ]],
-            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id']}
+            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id', 'move_name']}
         )
-        print(len(all_product_line))
         
         #Las guarda todas en un objetos junto con el id de la factura como id principal para encontrarla
         for line in all_product_line:
@@ -221,9 +220,10 @@ def get_newSales(ventasIDs):
             [[
                 ('move_id', 'in', ordersID),
                 ('display_type', '!=', 'line_note'),
+                ('display_type', '!=', 'cogs'),
                 '|', '|', ('account_type', '=', 'income'), ('account_type', '=', 'expense'), ('account_type', '=', False)
             ]],
-            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id']}
+            { 'fields' :['name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id', 'move_name']}
         )
         
         #Las guarda todas en un objetos junto con el id de la factura como id principal para encontrarla
@@ -345,15 +345,14 @@ def get_VentasExcel():
             #Para cada linea de producto obtenido obtenemos sus valores que seran guardados en productList y ademas sumamos sus subtotales para saber el total de la venta
             for indexP, prod in productos.iterrows():
                 productList.append({
-                    'id': prod['id_odoo'], 
+                    'id': indexP, 
                     'name': prod['nombreProducto'], 
                     'product_id': [prod['id_odoo'], ''],
                     'quantity': prod['Cantidad facturada'], 
                     'price_unit': prod['Precio unitario'], 
                     'price_subtotal': prod['Total'],
-                    'move_id': prod['idVenta']
+                    'move_name': prod['idVenta']
                 })
-                ##'name', 'product_id', 'quantity', 'price_unit', 'price_subtotal', 'move_id'
                 total=total+prod['Total']
             
             #Si el idcliente de nuestra venta en excel se encuentra en shipping_data, agrega los valores encontrados y si no setea los valores necesarios como false

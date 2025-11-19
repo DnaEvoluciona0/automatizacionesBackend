@@ -44,6 +44,7 @@ class VentasPVH(models.Model):
 
 #? Tabla de ventasPVA en el esquema de produccionLogistica
 class Caducidades(models.Model):
+    idCaducidad = models.BigIntegerField(primary_key=True)
     fechaCaducidad = models.DateField()
     cantidad = models.IntegerField()
     producto = models.ForeignKey(Productos, related_name="productoCaducidad", on_delete=models.CASCADE)

@@ -29,7 +29,9 @@ def insertInsumos(insumos):
     insumosPSQL = Productos.objects.all().values_list('idProductoTmp', flat=True)
 
     #Añadimos las insumos a la base de datos PosgreSQL
-    new_insumos = 0
+    insumosCreate = []
+    newInsumos = 0
+    
     for insumo in insumos:
         
         if insumo['id'] not in insumosPSQL:
@@ -50,8 +52,9 @@ def insertInsumos(insumos):
                     tipo = "NO RESURTIBLE"
                 else:
                     tipo = "OTROS"
-            try:
-                createInsumo = Productos.objects.create(
+            
+            insumosCreate.append(
+                Productos(
                     idProductoTmp = insumo['id'],
                     idProducto = insumo['product_variant_id'][0] if insumo['product_variant_id'] else 0,
                     nombre = insumo['name'],
@@ -67,13 +70,22 @@ def insertInsumos(insumos):
                     proveedor = insumo['provider'],
                     tiempoEntrega = insumo['delay']
                 )
-                new_insumos+=1
-            except Exception as e:
-                print("Error en viewsInsumo.insertInsumo | Insumo no se inserto: ", e, insumo)
+            )
+            
+    try:
+        Productos.objects.bulk_create(insumosCreate, batch_size=1000)
+        newInsumos+=len(insumosCreate)
+    except:
+        try:
+            for insumo in insumosCreate:
+                insumo.save()
+                newInsumos+=1   
+        except Exception as e:
+            print("Error en viewsInsumo.insertInsumo | Insumo no se inserto: ", e, insumo)
     
     return ({
         'status'  : 'success',
-        'message' : new_insumos
+        'message' : newInsumos
     })
 
 
@@ -202,51 +214,65 @@ def createInsumosOdoo(request):
 def updateInsumosOdoo(request):
     try:
         insumosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
-        #? Traemos los insumos de odoo
+        # Traemos los insumos de odoo
         insumosOdoo = ctrInsumo.get_updateInsumos(list(insumosIDs))
         
+        insumosObj = {i.idProductoTmp: i for i in Productos.objects.all()}
+        insumosUpdate = []
+        updatedInsumos = 0
+        
         if insumosOdoo['status'] == 'success':
-            updatedInsumos=0
             
             for insumo in insumosOdoo['products']:
-                try:
-                    #Busca el ID del insumo en Postgres
-                    insumoObj = Productos.objects.get(idProductoTmp=insumo['id'])
-                    
-                    sku = insumo['default_code'] if insumo['default_code'] else ""
-                    marca = insumo['product_brand_id'][1] if insumo['product_brand_id'] else ""
-                    categoria = insumo['categ_id'][1]
-                    rutas = len(insumo['route_ids'])
+                #Busca el ID del insumo en Postgres
+                insumoObj = insumosObj.get(insumo['id'])
+                
+                sku = insumo['default_code'] if insumo['default_code'] else ""
+                marca = insumo['product_brand_id'][1] if insumo['product_brand_id'] else ""
+                categoria = insumo['categ_id'][1]
+                rutas = len(insumo['route_ids'])
 
-                    if insumo['active']==False:
-                        tipo = "DESCONTINUADO"
+                if insumo['active']==False:
+                    tipo = "DESCONTINUADO"
+                else:
+                    if "MAQUILAS" in categoria or "MT" in sku: 
+                        tipo = "MAQUILAS"
+                    elif "PC" in sku:
+                        tipo = "PRODUCTO COMERCIAL"
+                    elif "PT" in sku and rutas > 0 and insumo['purchase_ok'] == True and insumo['active'] == True:
+                        tipo = "RESURTIBLE"
+                    elif "PT" in sku and (rutas == 0 or insumo['purchase_ok'] == False or insumo['active'] == False):
+                        tipo = "NO RESURTIBLE"
                     else:
-                        if "MAQUILAS" in categoria or "MT" in sku: 
-                            tipo = "MAQUILAS"
-                        elif "PC" in sku:
-                            tipo = "PRODUCTO COMERCIAL"
-                        elif "PT" in sku and rutas > 0 and insumo['purchase_ok'] == True and insumo['active'] == True:
-                            tipo = "RESURTIBLE"
-                        elif "PT" in sku and (rutas == 0 or insumo['purchase_ok'] == False or insumo['active'] == False):
-                            tipo = "NO RESURTIBLE"
-                        else:
-                            tipo = "OTROS"
+                        tipo = "OTROS"
 
-                    # Asigna los nuevos valores de Odoo a los insumos de PostgreSQL
-                    insumoObj.nombre           = insumo['name']
-                    insumoObj.sku              = sku
-                    insumoObj.marca            = marca
-                    insumoObj.maxActual        = insumo['product_max_qty']
-                    insumoObj.minActual        = insumo['product_min_qty']
-                    insumoObj.existenciaActual = insumo['qty_available']
-                    insumoObj.existenciaOC     = insumo['oc']
-                    insumoObj.categoria        = categoria
-                    insumoObj.tipo             = tipo
-                    insumoObj.proveedor        = insumo['provider']
-                    insumoObj.tiempoEntrega    = insumo['delay']
+                # Asigna los nuevos valores de Odoo a los insumos de PostgreSQL
+                insumoObj.nombre           = insumo['name']
+                insumoObj.sku              = sku
+                insumoObj.marca            = marca
+                insumoObj.maxActual        = insumo['product_max_qty']
+                insumoObj.minActual        = insumo['product_min_qty']
+                insumoObj.existenciaActual = insumo['qty_available']
+                insumoObj.existenciaOC     = insumo['oc']
+                insumoObj.categoria        = categoria
+                insumoObj.tipo             = tipo
+                insumoObj.proveedor        = insumo['provider']
+                insumoObj.tiempoEntrega    = insumo['delay']
 
-                    insumoObj.save()
-                    updatedInsumos+=1
+                insumosUpdate.append(insumoObj)
+                    
+            try:
+                Productos.objects.bulk_update(
+                    insumosUpdate,
+                    ['nombre', 'sku', 'marca', 'maxActual', 'minActual', 'existenciaActual', 'existenciaOC', 'categoria', 'tipo', 'proveedor', 'tiempoEntrega'],
+                    batch_size=1000
+                )
+                updatedInsumos+=len(insumosUpdate)
+            except:
+                try:
+                    for insumo in insumosUpdate:
+                        insumo.save()
+                        updatedInsumos+=1
                 except Exception as e:
                     print("Error en viewsInsumo.updateInsumo | Insumo no se actualizo: ", e, insumo)
             
