@@ -57,7 +57,10 @@ def get_allClients():
         res_partner = conn.models.execute_kw(
             conn.db, conn.uid, conn.password, 
             'res.partner', 'search_read', 
-            [[('id', 'in', partner_ids), '|', ('active', '=', True), ('active', '=', False)]],
+            [[
+                ('id', 'in', partner_ids),
+                '|', ('active', '=', True), ('active', '=', False)
+            ]],
             { 'fields' : ['name', 'city', 'state_id', 'country_id']}
         )
         
@@ -113,7 +116,7 @@ def get_newClients(clientesIDs):
                 '|', ('move_type', '=', 'out_invoice'), ('move_type', '=', 'out_refund'), 
                 ('branch_id', 'not ilike', 'STUDIO'), 
                 ('branch_id', 'not ilike', 'TORRE'),
-                ('team_id', 'not ilike', 'STUDIO 105'), 
+                ('team_id', 'not in', [8, 10, 12, 15, 16, 17, 21, 22]),
                 '|', '|', ('name', 'ilike', 'INV/'), ('name', 'ilike', 'MUEST/'), ('name', 'ilike', 'BONIF/')
             ],['partner_id'],['partner_id']]
         )
@@ -185,7 +188,7 @@ def get_updateClients(clientesIDs):
                 '|', ('move_type', '=', 'out_invoice'), ('move_type', '=', 'out_refund'), 
                 ('branch_id', 'not ilike', 'STUDIO'), 
                 ('branch_id', 'not ilike', 'TORRE'),
-                ('team_id', 'not ilike', 'STUDIO 105'), 
+                ('team_id', 'not in', [8, 10, 12, 15, 16, 17, 21, 22]),
                 '|', '|', ('name', 'ilike', 'INV/'), ('name', 'ilike', 'MUEST/'), ('name', 'ilike', 'BONIF/')
             ],['partner_id'],['partner_id']]
         )

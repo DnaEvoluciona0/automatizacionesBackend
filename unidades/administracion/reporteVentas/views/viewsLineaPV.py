@@ -1,4 +1,4 @@
-from unidades.administracion.reporteVentas.models import VentasPVH
+from unidades.administracion.reporteVentas.models import VentasPVH, Ventas
 from unidades.produccionLogistica.maxMin.models import Productos
 
 # --------------------------------------------------------------------------------------------------
@@ -22,46 +22,57 @@ from unidades.produccionLogistica.maxMin.models import Productos
 #     - Si "move_type" es igual a "out_invoice", significa que es una venta completada.
 #     - Si "move_type" es igual a "out_refund", significa que es una nota de crédito.
 # --------------------------------------------------------------------------------------------------
-def insertLineaVentaOdoo(productos, IDVenta, fechaVenta):
+def insertLineaVentaOdoo(productos):
+    
+    '''    
+    subtotal = producto['price_subtotal'] if IDVenta.idVenta[0] != 'R' else (producto['price_subtotal']*(-1))
+    '''
+    ventasObj = {v.idVenta: v for v in Ventas.objects.all()}
+    productos_id = {p.idProducto: p for p in Productos.objects.all()}
+    productos_tmp_id = {p.idProductoTmp: p for p in Productos.objects.all()}
+    
+    lineasCreate=[]
+    newLines = 0
     #Para cada producto lo intentara registrar en VentasPVH y Ventas PVA
     for producto in productos:
+        if producto['product_id']:
+            #Obtiene el nombre del producto el limpio
+            productoObj = productos_id.get(producto['product_id'][0])
+            
+            ventaObj = ventasObj.get(producto['move_name'])
+                    
+            #Lo registra en ventasPVH
+            lineasCreate.append(
+                VentasPVH(
+                    cantidad        = producto['quantity'],
+                    precioUnitario  = producto['price_unit'],
+                    subtotal        = producto['price_subtotal'] if ventaObj.idVenta[0] != 'R' else (producto['price_subtotal']*(-1)),
+                    venta           = ventaObj,
+                    producto        = productoObj
+                )       
+            )   
+        
+        else:
+            lineasCreate.append(
+                VentasPVH(
+                    cantidad        = producto['quantity'],
+                    precioUnitario  = producto['price_unit'],
+                    subtotal        = producto['price_subtotal'] if ventaObj.idVenta[0] != 'R' else (producto['price_subtotal']*(-1)),
+                    venta           = ventaObj
+                )       
+            ) 
+    try:
+        VentasPVH.objects.bulk_create(lineasCreate, batch_size=1000)
+        newLines+=len(lineasCreate)
+    except Exception as e:
+        print('entre al error en lineaPV', e)
         try:
-            if producto['product_id']:
-                #Obtiene el nombre del producto el limpio
-                try:
-                    productoObj = Productos.objects.get(idProducto=producto['product_id'][0])
-                except:
-                    try:
-                        productoObj = Productos.objects.get(idProductoTmp=producto['id'])
-                    except Exception as e:
-                        productoObj = False
-                        #print("Error en viewsLineaPV.insertLineaVentaOdoo | Producto no se encontro: ", e, producto)
-                
-                #Lo registra en ventasPVH
-                try:
-                    VentasPVH.objects.create(
-                        cantidad        = producto['quantity'],
-                        precioUnitario  = producto['price_unit'],
-                        subtotal        = producto['price_subtotal'] if IDVenta.idVenta[0] != 'R' else (producto['price_subtotal']*(-1)),
-                        venta           = IDVenta,
-                        producto        = productoObj
-                    )
-                except Exception as e:
-                    print("Error en viewsLineaPV.insertLineaVentaOdoo | VentaPVH no se inserto: ", e, producto)
-                        
-            else:
-                try:
-                    VentasPVH.objects.create(
-                            cantidad        = producto['quantity'],
-                            precioUnitario  = producto['price_unit'],
-                            subtotal        = producto['price_subtotal'],
-                            venta           = IDVenta,
-                        )
-                except Exception as e:
-                        print("Error en viewsLineaPV.insertLineaVentaOdoo | VentaPVH sin Id no se inserto: ", e, producto)
-                
+            for linea in lineasCreate:
+                linea.save()
+                newLines+=1
         except Exception as e:
-            print("Error en viewsLineaPV.insertLineaVentaOdoo | Error general: ", e, producto)
+            print("Error en viewsLineaPV.insertLineaVentaOdoo | VentaPVH no se inserto: ", e, producto)
+                
     #Retorna un exito                
     return({
         'status'  : 'success',
