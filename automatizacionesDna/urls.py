@@ -19,9 +19,9 @@ from django.urls import path
 
 #Rutas agregadas
 from unidades.produccionLogistica.maxMin.dataMaxMin import updateMinMax
-from unidades.produccionLogistica.maxMin.views.viewsProducto import pullProductsOdoo, updateProducts, createNewProductsFromOdoo, pullProductsExcel
+from unidades.produccionLogistica.maxMin.views.viewsProducto import pullProductsOdoo, createProductsOdoo, updateProductsOdoo, pullProductsExcel
 from unidades.produccionLogistica.maxMin.views.viewsInsumo import pullInsumosOdoo, updateInsumosOdoo, createInsumosOdoo
-from unidades.produccionLogistica.maxMin.views.viewsMaterialPI import pullMaterialPi
+from unidades.produccionLogistica.maxMin.views.viewsMaterialPI import pullMaterialPIOdoo
 from unidades.administracion.reporteVentas.views.viewsClientes import pullClientesOdoo, pullClientesExcel, createClientesOdoo, updateClientesOdoo
 from unidades.administracion.reporteVentas.views.viewsVentas import pullVentasOdoo, pullVentasExcel, createVentasOdoo
 from unidades.administracion.reporteVentas.views.viewsCaducidades import pullCaducidadesOdoo, createCaducidadesOdoo, updateCaducidadesOdoo
@@ -34,13 +34,13 @@ urlpatterns = [
     path('auto/pullProductsOdoo/', pullProductsOdoo),
     path('auto/pullInsumosOdoo/', pullInsumosOdoo),
     path('auto/pullProductsExcel/', pullProductsExcel),
-    path('auto/createProductsOdoo/', createNewProductsFromOdoo),
+    path('auto/createProductsOdoo/', createProductsOdoo),
     path('auto/createInsumosOdoo/', createInsumosOdoo),
-    path('auto/updateProductsOdoo/', updateProducts),
+    path('auto/updateProductsOdoo/', updateProductsOdoo),
     path('auto/updateInsumosOdoo/', updateInsumosOdoo),
     
     #!Rutas para MaterialesPI
-    path('auto/pullMaterialPIOdoo/', pullMaterialPi),
+    path('auto/pullMaterialPIOdoo/', pullMaterialPIOdoo),
     
     #!Rutas para BajaRotación
     path('auto/pullCaducidadesOdoo/', pullCaducidadesOdoo), #? En el total son menos 5 por que no cumple el formato de fecha para registrarse
@@ -55,7 +55,7 @@ urlpatterns = [
     
     #!Rutas para Ventas
     path('auto/pullVentasOdoo/', pullVentasOdoo),
-    path('auto/pullVentasExcel/', pullVentasExcel),
+    path('auto/pullVentasExcel/', pullVentasExcel), #!
     path('auto/createVentasOdoo/', createVentasOdoo),
     
     #!Rutas Actualizar Max y Min Insumos

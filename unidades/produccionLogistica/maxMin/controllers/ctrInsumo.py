@@ -337,6 +337,7 @@ def get_updateInsumos(insumosIDs):
             conOdoo.db, conOdoo.uid, conOdoo.password,
             'product.template', 'search_read', 
             [[
+                ('id', 'in', insumosIDs),
                 '|', ('active', '=', True), ('active', '=', False), 
                 ('categ_id', 'ilike', 'INSUMO'), 
                 ('categ_id.parent_id', 'not ilike', 'AGENCIA DIGITAL'), 

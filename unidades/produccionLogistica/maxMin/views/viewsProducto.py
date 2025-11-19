@@ -33,54 +33,65 @@ def getProductsPSQL(request):
 #         · Si no contiene rutas → Tipo: INTERNO NO RESURTIBLE.
 #     - Si no cumple con ninguna de las condiciones anteriores → Tipo: OTROS.
 # --------------------------------------------------------------------------------------------------
-def insertProducts(products):
+def insertProducts(productos):
     #traemos los productos existentes de PostgreSQL
     productsPSQL = Productos.objects.all().values_list('idProductoTmp', flat=True)
 
     #añadir los productos a la base de datos de PostgreSQL
-    new_products = 0
-    for product in products:
+    productosCreate = []
+    newProducts = 0
+    
+    for producto in productos:
         
-        if product['id'] not in productsPSQL:
+        if producto['id'] not in productsPSQL:
         
-            sku = product['default_code'] if product['default_code'] else ""
-            marca = product['product_brand_id'][1] if product['product_brand_id'] else ""
-            categoria = product['categ_id'][1]
-            rutas = len(product['route_ids'])
+            sku = producto['default_code'] if producto['default_code'] else ""
+            marca = producto['product_brand_id'][1] if producto['product_brand_id'] else ""
+            categoria = producto['categ_id'][1]
+            rutas = len(producto['route_ids'])
 
-            if product['active']==False:
+            if producto['active']==False:
                 tipo = "DESCONTINUADO"
             else:
                 if "MAQUILAS" in categoria or "MT" in sku: 
                     tipo = "MAQUILAS"
                 elif "PC" in sku:
                     tipo = "PRODUCTO COMERCIAL"
-                elif "PT" in sku and rutas > 0 and product['sale_ok'] == True and product['active'] == True:
+                elif "PT" in sku and rutas > 0 and producto['sale_ok'] == True and producto['active'] == True:
                     tipo = "RESURTIBLE"
-                elif "PT" in sku and (rutas == 0 or product['sale_ok'] == False or product['active'] == False):
+                elif "PT" in sku and (rutas == 0 or producto['sale_ok'] == False or producto['active'] == False):
                     tipo = "NO RESURTIBLE"
                 else:
                     tipo = "OTROS"
             
-            try:
-                createProduct = Productos.objects.create(
-                    idProductoTmp = product['id'],
-                    idProducto = product['product_variant_id'][0] if product['product_variant_id'] != False else 0,
+            productosCreate.append(
+                Productos(
+                    idProductoTmp = producto['id'],
+                    idProducto = producto['product_variant_id'][0] if producto['product_variant_id'] != False else 0,
                     sku = sku,
-                    nombre = product['name'],
-                    existenciaActual =  product['qty_available'],
+                    nombre = producto['name'],
+                    existenciaActual =  producto['qty_available'],
                     marca = marca,
                     categoria = categoria,
                     tipo = tipo,
-                    fechaCreacion = product['create_date']
+                    fechaCreacion = producto['create_date']
                 )
-                new_products+=1
-            except Exception as e:
-                print("Error en viewsProducto.insertProducto | Producto no se inserto: ", e, product)
+            )
+                
+    try:
+        Productos.objects.bulk_create(productosCreate, batch_size=1000)
+        newProducts+=len(productosCreate)
+    except:
+        try:
+            for producto in productosCreate:
+                producto.save()
+                newProducts+=1
+        except Exception as e:
+            print("Error en viewsProducto.insertProducto | Producto no se inserto: ", e, producto)
 
     return ({
         'status'  : 'success',
-        'message' : new_products
+        'message' : newProducts
     })
 
 
@@ -158,7 +169,7 @@ def pullProductsOdoo(request):
 #     - Caso succes:
 #           La función insertProducts retorna mensaje success y envía mensaje con la cantidad de productos actualizados
 # --------------------------------------------------------------------------------------------------
-def createNewProductsFromOdoo(request):
+def createProductsOdoo(request):
     try:
         productosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
         #Traer los productos que existen de odoo        
@@ -217,48 +228,62 @@ def createNewProductsFromOdoo(request):
 #     - Caso success:
 #           La función insertProducts retorna mensaje success y envía mensaje con la cantidad de productos actualizados
 # --------------------------------------------------------------------------------------------------
-def updateProducts(request):
+def updateProductsOdoo(request):
     try:
         productosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
         # Productos de Odoo
         productsOdoo = ctrProducto.get_updateProducts(list(productosIDs))
+        
+        productosObj = {p.idProductoTmp: p for p in Productos.objects.all()}
+        productosUpdate = []
+        updatedProducts=0
 
         if productsOdoo['status'] == 'success':
-            updatedProducts=0
             
             for product in productsOdoo['products']:
-                try:
-                    #Busca el ID del producto en Postgres
-                    productoObj = Productos.objects.get(idProductoTmp=product['id'])
-                    
-                    sku = product['default_code'] if product['default_code'] else ""
-                    categoria = product['categ_id'][1] if product['categ_id'] else ""
-                    rutas = len(product['route_ids'])
+                #Busca el ID del producto en Postgres
+                productoObj = productosObj.get(product['id'])
+                
+                sku = product['default_code'] if product['default_code'] else ""
+                categoria = product['categ_id'][1] if product['categ_id'] else ""
+                rutas = len(product['route_ids'])
 
-                    if product['active']==False:
-                        tipo = "DESCONTINUADO"
+                if product['active']==False:
+                    tipo = "DESCONTINUADO"
+                else:
+                    if "MAQUILAS" in categoria or "MT" in sku: 
+                        tipo = "MAQUILAS"
+                    elif "PC" in sku:
+                        tipo = "PRODUCTO COMERCIAL"
+                    elif "PT" in sku and rutas > 0 and product['sale_ok'] == True and product['active'] == True:
+                        tipo = "RESURTIBLE"
+                    elif "PT" in sku and (rutas == 0 or product['sale_ok'] == False or product['active'] == False):
+                        tipo = "NO RESURTIBLE"
                     else:
-                        if "MAQUILAS" in categoria or "MT" in sku: 
-                            tipo = "MAQUILAS"
-                        elif "PC" in sku:
-                            tipo = "PRODUCTO COMERCIAL"
-                        elif "PT" in sku and rutas > 0 and product['sale_ok'] == True and product['active'] == True:
-                            tipo = "RESURTIBLE"
-                        elif "PT" in sku and (rutas == 0 or product['sale_ok'] == False or product['active'] == False):
-                            tipo = "NO RESURTIBLE"
-                        else:
-                            tipo = "OTROS"
+                        tipo = "OTROS"
 
-                    # Asigna los nuevos valores de Odoo a los productos de PostgreSQL
-                    productoObj.nombre           = product['name']
-                    productoObj.sku              = sku
-                    productoObj.marca            = product['product_brand_id'][1] if product['product_brand_id'] else ''
-                    productoObj.existenciaActual = product['qty_available']
-                    productoObj.categoria        = categoria
-                    productoObj.tipo             = tipo
-
-                    productoObj.save()
-                    updatedProducts+=1
+                # Asigna los nuevos valores de Odoo a los productos de PostgreSQL
+                productoObj.nombre           = product['name']
+                productoObj.sku              = sku
+                productoObj.marca            = product['product_brand_id'][1] if product['product_brand_id'] else ''
+                productoObj.existenciaActual = product['qty_available']
+                productoObj.categoria        = categoria
+                productoObj.tipo             = tipo
+                
+                productosUpdate.append(productoObj)
+            
+            try:
+                Productos.objects.bulk_update(
+                    productosUpdate,
+                    ['nombre', 'sku', 'marca', 'existenciaActual', 'categoria', 'tipo'],
+                    batch_size=1000
+                )
+                updatedProducts+=len(productosUpdate)
+            except:
+                try:
+                    for producto in productosUpdate:
+                        producto.save()
+                        updatedProducts+=1
                 except Exception as e:
                     print("Error en viewsProducto.updateProducto | Producto no se actulizo: ", e, product)
                     

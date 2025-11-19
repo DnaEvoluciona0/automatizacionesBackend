@@ -24,6 +24,7 @@ class Productos(models.Model):
     
 #? Tabla de los insumos que ocupa cada producto en el eschema de produccionLogistica
 class MaterialPI(models.Model):
+    idMaterialPI = models.BigIntegerField(primary_key=True)
     padre = models.ForeignKey(Productos, related_name="padreProducto", on_delete=models.CASCADE, null=True)
     hijo = models.ForeignKey(Productos, related_name="MaterialProducto", on_delete=models.CASCADE, null=True)
     cantidad = models.FloatField()
