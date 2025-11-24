@@ -42,7 +42,7 @@ urlpatterns = [
     path('auto/pullMaterialPIOdoo/', pullMaterialPIOdoo),
     
     #!Rutas para BajaRotación
-    path('auto/pullCaducidadesOdoo/', pullCaducidadesOdoo), #? En el total son menos 5 por que no cumple el formato de fecha para registrarse
+    path('auto/pullCaducidadesOdoo/', pullCaducidadesOdoo), #? En el total son menos 2 por que no cumple el formato de fecha para registrarse
     path('auto/createCaducidadesOdoo/', createCaducidadesOdoo),
     path('auto/updateCaducidadesOdoo/', updateCaducidadesOdoo),
     
@@ -54,7 +54,7 @@ urlpatterns = [
     
     #!Rutas para Ventas
     path('auto/pullVentasOdoo/', pullVentasOdoo),
-    path('auto/pullVentasExcel/', pullVentasExcel), #!
+    path('auto/pullVentasExcel/', pullVentasExcel),
     path('auto/createVentasOdoo/', createVentasOdoo),
     path('auto/pullVentasExcel/', pullVentasExcel),
     

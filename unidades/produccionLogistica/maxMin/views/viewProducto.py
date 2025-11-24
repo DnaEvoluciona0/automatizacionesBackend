@@ -127,7 +127,7 @@ def pullProductsOdoo(request):
                 totalRows = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {totalRows} productos de {len(productsOdoo['products'])}'
+                    'message' : f'Se han agregado correctamente {totalRows} productos de {len(productsOdoo["products"])}'
                 })
 
             return JsonResponse({
@@ -182,7 +182,7 @@ def createProductsOdoo(request):
                 totalRows = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo['products'])}'
+                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo["products"])}'
                 })
 
             return JsonResponse({
@@ -288,13 +288,62 @@ def updateProductsOdoo(request):
                     
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se han actualizado correctamente {updatedProducts} productos de {len(productsOdoo['products'])}'
+                'message' : f'Se han actualizado correctamente {updatedProducts} productos de {len(productsOdoo["products"])}'
             })
 
         return JsonResponse({
             'status'  : 'error',
-            'message' : f"Error en realizar la consulta a Odoo: {productsOdoo['message']}"
+            'message' : f'Error en realizar la consulta a Odoo: {productsOdoo["message"]}'
         })
+    except Exception as e:
+        return JsonResponse({
+            'status'  : 'error',
+            'message' : f'Ha ocurrido un error al tratar de insertar los datos: {str(e)}'
+        })
+        
+
+    # --------------------------------------------------------------------------------------------------
+# * Función: pullProductsOdoo
+# * Descripción: Obtiene todos los productos de Odoo y llama a la función correspondiente para insertart datos
+# * Maneja posibles excepciones
+#
+# ! Parámetros:
+#     - request. Como se utiliza para URLS, recibe la información de la consulta
+#
+# ? Returns:
+#     - Caso error:
+#           Ocurre algún error en traer los productos de Odoo
+#           La función insertProducts retorna mensaje de error
+#           Ocurre una excepción en la ejecución del código
+#     - Caso succes:
+#           La función insertProducts retorna mensaje success y envía mensaje con la cantidad de productos agregados
+# --------------------------------------------------------------------------------------------------
+def pullProductsExcel(request):
+    try:
+        productosIDs = Productos.objects.all().values_list('idProductoTmp', flat=True)
+        #Traer los productos que existen de odoo        
+        productsOdoo = ctrProducto.get_allProductsExcel(list(productosIDs))
+        if productsOdoo['status'] == "success":
+
+            response = insertProducts(productsOdoo['products'])
+
+            if response['status'] == "success":
+                totalRows = response['message']
+                return JsonResponse({
+                    'status'  : 'success',
+                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo["products"])}'
+                })
+
+            return JsonResponse({
+                'status'  : 'error',
+                'message' : response['message']
+            })
+
+        return JsonResponse({
+            'status'  : 'error',
+            'message' : productsOdoo['message']
+        })
+    
     except Exception as e:
         return JsonResponse({
             'status'  : 'error',

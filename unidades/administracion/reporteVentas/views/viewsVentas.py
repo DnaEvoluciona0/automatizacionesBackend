@@ -139,7 +139,7 @@ def pullVentasOdoo(request):
             if response['status'] == "success":
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {response['message'][0]} ventas, {response['message'][1]} notas de credito dando un total de {response['message'][2]} de {len(ventasOdoo['ventas'])}'
+                    'message' : f'Se han agregado correctamente {response["message"][0]} ventas, {response["message"][1]} notas de credito dando un total de {response["message"][2]} de {len(ventasOdoo["ventas"])}'
                 })
                 
             return JsonResponse({
@@ -189,7 +189,7 @@ def createVentasOdoo(request):
             if response['status'] == "success":
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {response['message'][0]} ventas nuevas, {response['message'][1]} notas de credito nuevas dando un total de {response['message'][2]} de {len(ventasOdoo['ventas'])}'
+                    'message' : f'Se han agregado correctamente {response["message"][0]} ventas nuevas, {response["message"][1]} notas de credito nuevas dando un total de {response["message"][2]} de {len(ventasOdoo["ventas"])}'
                 })
                 
             return JsonResponse({
@@ -239,7 +239,7 @@ def pullVentasExcel(request):
             if response['status'] == "success":
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {response['message'][0]} ventas de Excel, {response['message'][1]} notas de credito de Excel dando un total de {response['message'][2]} de {len(ventasOdoo['ventas'])}'
+                    'message' : f'Se han agregado correctamente {response["message"][0]} ventas de Excel, {response["message"][1]} notas de credito de Excel dando un total de {response["message"][2]} de {len(ventasOdoo["ventas"])}'
                 })
                 
             return JsonResponse({
