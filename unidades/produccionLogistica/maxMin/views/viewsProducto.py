@@ -127,7 +127,7 @@ def pullProductsOdoo(request):
                 totalRows = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {totalRows} productos de {len(productsOdoo['products'])}'
+                    'message' : f'Se han agregado correctamente {totalRows} productos de {len(productsOdoo["products"])}'
                 })
 
             return JsonResponse({
@@ -182,7 +182,7 @@ def createProductsOdoo(request):
                 totalRows = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo['products'])}'
+                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo["products"])}'
                 })
 
             return JsonResponse({
@@ -289,12 +289,12 @@ def updateProductsOdoo(request):
                     
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se han actualizado correctamente {updatedProducts} productos de {len(productsOdoo['products'])}'
+                'message' : f'Se han actualizado correctamente {updatedProducts} productos de {len(productsOdoo["products"])}'
             })
 
         return JsonResponse({
             'status'  : 'error',
-            'message' : f"Error en realizar la consulta a Odoo: {productsOdoo['message']}"
+            'message' : f'Error en realizar la consulta a Odoo: {productsOdoo["message"]}'
         })
     except Exception as e:
         return JsonResponse({
@@ -332,7 +332,7 @@ def pullProductsExcel(request):
                 totalRows = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo['products'])}'
+                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo["products"])}'
                 })
 
             return JsonResponse({

@@ -65,7 +65,7 @@ def pullMaterialPIOdoo(request):
                     
             return JsonResponse({
                 'status' : 'success',
-                'message' : f'Se han cargado {assignedMateriales} materiales de productos de {len(materialPI['materiales'])}'
+                'message' : f'Se han cargado {assignedMateriales} materiales de productos de {len(materialPI["materiales"])}'
             })
         return JsonResponse({
             'status'  : 'error',
