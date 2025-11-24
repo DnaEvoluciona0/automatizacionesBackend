@@ -93,7 +93,10 @@ DATABASES = {
         'USER' : usernamebd,
         'PASSWORD' : passwordbd,
         'HOST' : dbhost,
-        'PORT' : puertobd
+        'PORT' : puertobd,
+        'OPTIONS': {
+            'connect_timeout': 10,
+        }
     }
 }
 

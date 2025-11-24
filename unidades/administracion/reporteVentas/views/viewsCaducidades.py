@@ -215,7 +215,7 @@ def updateCaducidadesOdoo(request):
                 
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se modificaron {updatedCaducidades} de {len(caducidadesOdoo['caducidades'])}'
+                'message' : f'Se modificaron {updatedCaducidades} de {len(caducidadesOdoo["caducidades"])}'
             })
             
         else:

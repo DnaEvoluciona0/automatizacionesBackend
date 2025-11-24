@@ -282,7 +282,7 @@ def updateInsumosOdoo(request):
             })
         return JsonResponse({
             'status'  : 'error',
-            'message' : f"Error en realizar la consulta a Odoo: {insumosOdoo['message']} "
+            'message' : f'Error en realizar la consulta a Odoo: {insumosOdoo["message"]}'
         })
     except Exception as e:
         return JsonResponse({

@@ -294,7 +294,7 @@ def updateProductsOdoo(request):
 
         return JsonResponse({
             'status'  : 'error',
-            'message' : f"Error en realizar la consulta a Odoo: {productsOdoo['message']}"
+            'message' : f'Error en realizar la consulta a Odoo: {productsOdoo["message"]}'
         })
     except Exception as e:
         return JsonResponse({
@@ -332,7 +332,7 @@ def pullProductsExcel(request):
                 totalRows = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo['products'])}'
+                    'message' : f'Se han agregado correctamente {totalRows} nuevos productos de {len(productsOdoo["products"])}'
                 })
 
             return JsonResponse({

@@ -213,7 +213,7 @@ def updateClientesOdoo(request):
             
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se han modificados {updatedClientes} clientes de {len(clientesOdoo['clientes'])}'
+                'message' : f'Se han modificados {updatedClientes} clientes de {len(clientesOdoo["clientes"])}'
             })
         else:
             return JsonResponse({
