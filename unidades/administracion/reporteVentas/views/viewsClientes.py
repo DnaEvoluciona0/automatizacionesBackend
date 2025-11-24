@@ -87,7 +87,7 @@ def pullClientesOdoo(request):
                 message = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {message} clientes de {len(clientesOdoo['clientes'])}'
+                    'message' : f'Se han agregado correctamente {message} clientes de {len(clientesOdoo["clientes"])}'
                 })
             return JsonResponse({
                 'status'  : 'error',
@@ -136,7 +136,7 @@ def createClientesOdoo(request):
                 message = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {message} clientes nuevos de {len(clientesOdoo['clientes'])}'
+                    'message' : f'Se han agregado correctamente {message} clientes nuevos de {len(clientesOdoo["clientes"])}'
                 })
             return JsonResponse({
                 'status'  : 'error',
@@ -213,7 +213,7 @@ def updateClientesOdoo(request):
             
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se han modificados {updatedClientes} clientes de {len(clientesOdoo['clientes'])}'
+                'message' : f'Se han modificados {updatedClientes} clientes de {len(clientesOdoo["clientes"])}'
             })
         else:
             return JsonResponse({
@@ -257,7 +257,7 @@ def pullClientesExcel(request):
                 message = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se han agregado correctamente {message} clientes Excel de {len(clientesOdoo['clientes'])}'
+                    'message' : f'Se han agregado correctamente {message} clientes Excel de {len(clientesOdoo["clientes"])}'
                 })
             return JsonResponse({
                 'status'  : 'error',

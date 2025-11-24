@@ -90,7 +90,7 @@ def pullCaducidadesOdoo(request):
                 message = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se registraron {message} caducidades de {len(caducidadesOdoo['caducidades'])}'
+                    'message' : f'Se registraron {message} caducidades de {len(caducidadesOdoo["caducidades"])}'
                 })
             return JsonResponse({
                     'status'  : 'error',
@@ -143,7 +143,7 @@ def createCaducidadesOdoo(request):
                 message = response['message']
                 return JsonResponse({
                     'status'  : 'success',
-                    'message' : f'Se registraron {message} nuevas caducidades de {len(caducidadesOdoo['caducidades'])}'
+                    'message' : f'Se registraron {message} nuevas caducidades de {len(caducidadesOdoo["caducidades"])}'
                 })
             return JsonResponse({
                     'status'  : 'error',
@@ -215,7 +215,7 @@ def updateCaducidadesOdoo(request):
                 
             return JsonResponse({
                 'status'  : 'success',
-                'message' : f'Se modificaron {updatedCaducidades} de {len(caducidadesOdoo['caducidades'])}'
+                'message' : f'Se modificaron {updatedCaducidades} de {len(caducidadesOdoo["caducidades"])}'
             })
             
         else:
