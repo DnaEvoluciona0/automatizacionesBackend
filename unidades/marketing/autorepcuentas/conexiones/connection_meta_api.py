@@ -25,10 +25,9 @@ class MetaAPI:
 
     def _load_config(self):
         """Carga la configuración desde config.json"""
-        # ADAPTACIÓN DJANGO: Buscar config.json en la raíz del proyecto Django
-        # Subir 4 niveles: autorepcuentas -> marketing -> unidades -> automatizacionesBackend
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
-        config_path = os.path.join(base_dir, "config.json")
+        # config.json está en la carpeta autorepcuentas (un nivel arriba de conexiones)
+        autorepcuentas_dir = os.path.dirname(os.path.dirname(__file__))
+        config_path = os.path.join(autorepcuentas_dir, "config.json")
 
         try:
             with open(config_path, 'r', encoding='utf-8') as f:

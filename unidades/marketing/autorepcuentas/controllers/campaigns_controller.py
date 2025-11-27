@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-CAMPAIGNS CONTROLLER - LEO MASTER
+CAMPAIGNS CONTROLLER - AutoRepCuentas
 Controlador para operaciones con campañas de Meta Ads
+Usa Django ORM para PostgreSQL local
 """
 
 import os
@@ -11,16 +12,15 @@ import sys
 import json
 import time
 import requests
-import hashlib
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
 # Agregar el directorio raíz al path para imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from ..conexiones.connection_supabase import SupabaseAPI
 from ..conexiones.connection_meta_api import MetaAPI
 from ..utils.date_utils import DateManager
+from ..models import Campaigns
 
 
 # --------------------------------------------------------------------------------------------------
@@ -301,7 +301,7 @@ def get_campaigns_insights(account_data, campaigns_data):
 
 # --------------------------------------------------------------------------------------------------
 # * Función: sync_campaigns_to_supabase
-# * Descripción: Sincroniza campañas e insights con Supabase
+# * Descripción: Sincroniza campañas e insights con PostgreSQL usando Django ORM
 #
 # ! Parámetros:
 #   - campaigns_data: list - Lista de campañas
@@ -313,7 +313,7 @@ def get_campaigns_insights(account_data, campaigns_data):
 #   - { status: 'error', message: '...' }
 # --------------------------------------------------------------------------------------------------
 def sync_campaigns_to_supabase(campaigns_data, insights_data, account_data):
-    """Sincroniza campañas e insights con Supabase"""
+    """Sincroniza campañas e insights con PostgreSQL usando Django ORM"""
     if not campaigns_data or not insights_data:
         return {
             'status': 'error',
@@ -321,91 +321,115 @@ def sync_campaigns_to_supabase(campaigns_data, insights_data, account_data):
         }
 
     try:
-        supabase_api = SupabaseAPI()
-        supabase = supabase_api.get_client()
-
         # Combinar campaigns con insights
         campaigns_dict = {camp['id']: camp for camp in campaigns_data}
-        combined_records = []
-
-        for insight in insights_data:
-            campaign_id = insight.get('campaign_id')
-            campaign_data = campaigns_dict.get(campaign_id, {})
-
-            combined_record = {
-                'account_id': insight.get('account_id'),
-                'account_name': insight.get('account_name'),
-                'campaign_id': campaign_id,
-                'campaign_name': insight.get('campaign_name') or campaign_data.get('name'),
-                'campaign_status': campaign_data.get('status'),
-                'campaign_objective': insight.get('objective') or campaign_data.get('objective'),
-                'campaign_created_time': campaign_data.get('created_time'),
-                'campaign_updated_time': campaign_data.get('updated_time'),
-                'campaign_start_time': campaign_data.get('start_time'),
-                'campaign_stop_time': campaign_data.get('stop_time'),
-                'buying_type': insight.get('buying_type') or campaign_data.get('buying_type'),
-                'bid_strategy': campaign_data.get('bid_strategy'),
-                'budget_remaining': float(campaign_data.get('budget_remaining', 0)) if campaign_data.get('budget_remaining') else 0.0,
-                'configured_status': campaign_data.get('configured_status'),
-                'effective_status': campaign_data.get('effective_status'),
-                'special_ad_category': campaign_data.get('special_ad_category'),
-                'can_use_spend_cap': campaign_data.get('can_use_spend_cap'),
-                'budget_rebalance_flag': campaign_data.get('budget_rebalance_flag'),
-                'is_skadnetwork_attribution': campaign_data.get('is_skadnetwork_attribution'),
-                'smart_promotion_type': campaign_data.get('smart_promotion_type'),
-                'can_create_brand_lift_study': campaign_data.get('can_create_brand_lift_study'),
-                'insights_date_start': insight.get('date_start'),
-                'insights_date_stop': insight.get('date_stop'),
-                'impressions': int(insight.get('impressions', 0)) if insight.get('impressions') else 0,
-                'clicks': int(insight.get('clicks', 0)) if insight.get('clicks') else 0,
-                'spend': float(insight.get('spend', 0)) if insight.get('spend') else 0.0,
-                'reach': int(insight.get('reach', 0)) if insight.get('reach') else 0,
-                'frequency': float(insight.get('frequency', 0)) if insight.get('frequency') else 0.0,
-                'cpm': float(insight.get('cpm', 0)) if insight.get('cpm') else 0.0,
-                'cpc': float(insight.get('cpc', 0)) if insight.get('cpc') else 0.0,
-                'ctr': float(insight.get('ctr', 0)) if insight.get('ctr') else 0.0,
-                'inline_link_clicks': int(insight.get('inline_link_clicks', 0)) if insight.get('inline_link_clicks') else 0,
-                'inline_link_click_ctr': float(insight.get('inline_link_click_ctr', 0)) if insight.get('inline_link_click_ctr') else 0.0,
-                'unique_clicks': int(insight.get('unique_clicks', 0)) if insight.get('unique_clicks') else 0,
-                'unique_ctr': float(insight.get('unique_ctr', 0)) if insight.get('unique_ctr') else 0.0,
-                'optimization_goal': insight.get('optimization_goal'),
-                'extraction_date': datetime.now().isoformat(),
-                'data_source': 'LEO_MASTER_CONTROLLER'
-            }
-
-            combined_records.append(combined_record)
-
-        # Sincronizar con Supabase
         stats = {'insertados': 0, 'actualizados': 0, 'sin_cambios': 0, 'errores': 0}
 
-        for record in combined_records:
+        for insight in insights_data:
             try:
-                campaign_id = record['campaign_id']
-                insights_date_start = record['insights_date_start']
+                campaign_id = insight.get('campaign_id')
+                campaign_data = campaigns_dict.get(campaign_id, {})
+                insights_date_start = insight.get('date_start')
 
-                # Verificar si existe con PRIMARY KEY compuesta
-                existing = supabase.table('campaigns').select('*').eq(
-                    'campaign_id', campaign_id
-                ).eq(
-                    'insights_date_start', insights_date_start
-                ).execute()
+                if not campaign_id or not insights_date_start:
+                    stats['errores'] += 1
+                    continue
 
-                if not existing.data:
-                    # No existe, insertar
-                    supabase.table('campaigns').insert(record).execute()
-                    stats['insertados'] += 1
-                else:
+                # Preparar datos para el registro
+                record_data = {
+                    'account_id': insight.get('account_id'),
+                    'account_name': insight.get('account_name'),
+                    'campaign_name': insight.get('campaign_name') or campaign_data.get('name'),
+                    'campaign_status': campaign_data.get('status'),
+                    'campaign_objective': insight.get('objective') or campaign_data.get('objective'),
+                    'buying_type': insight.get('buying_type') or campaign_data.get('buying_type'),
+                    'bid_strategy': campaign_data.get('bid_strategy'),
+                    'budget_remaining': float(campaign_data.get('budget_remaining', 0)) if campaign_data.get('budget_remaining') else 0.0,
+                    'configured_status': campaign_data.get('configured_status'),
+                    'effective_status': campaign_data.get('effective_status'),
+                    'special_ad_category': campaign_data.get('special_ad_category'),
+                    'can_use_spend_cap': campaign_data.get('can_use_spend_cap'),
+                    'budget_rebalance_flag': campaign_data.get('budget_rebalance_flag'),
+                    'is_skadnetwork_attribution': campaign_data.get('is_skadnetwork_attribution'),
+                    'smart_promotion_type': campaign_data.get('smart_promotion_type'),
+                    'can_create_brand_lift_study': campaign_data.get('can_create_brand_lift_study'),
+                    'insights_date_stop': insight.get('date_stop'),
+                    'impressions': int(insight.get('impressions', 0)) if insight.get('impressions') else 0,
+                    'clicks': int(insight.get('clicks', 0)) if insight.get('clicks') else 0,
+                    'spend': float(insight.get('spend', 0)) if insight.get('spend') else 0.0,
+                    'reach': int(insight.get('reach', 0)) if insight.get('reach') else 0,
+                    'frequency': float(insight.get('frequency', 0)) if insight.get('frequency') else 0.0,
+                    'cpm': float(insight.get('cpm', 0)) if insight.get('cpm') else 0.0,
+                    'cpc': float(insight.get('cpc', 0)) if insight.get('cpc') else 0.0,
+                    'ctr': float(insight.get('ctr', 0)) if insight.get('ctr') else 0.0,
+                    'inline_link_clicks': int(insight.get('inline_link_clicks', 0)) if insight.get('inline_link_clicks') else 0,
+                    'inline_link_click_ctr': float(insight.get('inline_link_click_ctr', 0)) if insight.get('inline_link_click_ctr') else 0.0,
+                    'unique_clicks': int(insight.get('unique_clicks', 0)) if insight.get('unique_clicks') else 0,
+                    'unique_ctr': float(insight.get('unique_ctr', 0)) if insight.get('unique_ctr') else 0.0,
+                    'optimization_goal': insight.get('optimization_goal'),
+                    'extraction_date': datetime.now(),
+                    'data_source': 'AUTOREPCUENTAS_CONTROLLER',
+                    'updated_at': datetime.now()
+                }
+
+                # Parsear fechas de campaña
+                if campaign_data.get('created_time'):
+                    try:
+                        record_data['campaign_created_time'] = datetime.fromisoformat(
+                            campaign_data['created_time'].replace('Z', '+00:00')
+                        )
+                    except:
+                        pass
+
+                if campaign_data.get('updated_time'):
+                    try:
+                        record_data['campaign_updated_time'] = datetime.fromisoformat(
+                            campaign_data['updated_time'].replace('Z', '+00:00')
+                        )
+                    except:
+                        pass
+
+                if campaign_data.get('start_time'):
+                    try:
+                        record_data['campaign_start_time'] = datetime.fromisoformat(
+                            campaign_data['start_time'].replace('Z', '+00:00')
+                        )
+                    except:
+                        pass
+
+                if campaign_data.get('stop_time'):
+                    try:
+                        record_data['campaign_stop_time'] = datetime.fromisoformat(
+                            campaign_data['stop_time'].replace('Z', '+00:00')
+                        )
+                    except:
+                        pass
+
+                # Verificar si existe con PRIMARY KEY compuesta usando Django ORM
+                try:
+                    existing = Campaigns.objects.get(
+                        campaign_id=campaign_id,
+                        insights_date_start=insights_date_start
+                    )
                     # Existe, actualizar
-                    record['updated_at'] = datetime.now().isoformat()
-                    supabase.table('campaigns').update(record).eq(
-                        'campaign_id', campaign_id
-                    ).eq(
-                        'insights_date_start', insights_date_start
-                    ).execute()
+                    for key, value in record_data.items():
+                        setattr(existing, key, value)
+                    existing.save()
                     stats['actualizados'] += 1
 
-            except Exception:
+                except Campaigns.DoesNotExist:
+                    # No existe, crear nuevo
+                    Campaigns.objects.create(
+                        campaign_id=campaign_id,
+                        insights_date_start=insights_date_start,
+                        **record_data
+                    )
+                    stats['insertados'] += 1
+
+            except Exception as e:
+                print(f"Error procesando campaign {campaign_id}: {str(e)}")
                 stats['errores'] += 1
+                continue
 
         return {
             'status': 'success',
@@ -417,5 +441,5 @@ def sync_campaigns_to_supabase(campaigns_data, insights_data, account_data):
     except Exception as e:
         return {
             'status': 'error',
-            'message': f'Error sincronizando con Supabase: {str(e)}'
+            'message': f'Error sincronizando con PostgreSQL: {str(e)}'
         }

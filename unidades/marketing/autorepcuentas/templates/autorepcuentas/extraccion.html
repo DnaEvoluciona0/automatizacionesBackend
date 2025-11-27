@@ -19,22 +19,10 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title mb-4"><i class="bi bi-gear me-2"></i>Configurar Extraccion</h5>
+                <h5 class="card-title mb-4"><i class="bi bi-gear me-2"></i>Configurar Extraccion Masiva</h5>
 
                 <div class="mb-3">
-                    <label class="form-label">Seleccionar Cuenta</label>
-                    <select class="form-select" id="selectCuenta">
-                        <option value="">-- Selecciona una cuenta --</option>
-                        {% for cuenta in cuentas %}
-                        <option value="{{ cuenta.account_key }}" {% if selected_account == cuenta.account_key %}selected{% endif %}>
-                            [{{ cuenta.account_key }}] {{ cuenta.account_name }} - {{ cuenta.marcas }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Tipo de Datos</label>
+                    <label class="form-label">Tipo de Datos a Extraer</label>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="chkCampaigns" checked>
                         <label class="form-check-label" for="chkCampaigns">
@@ -42,21 +30,59 @@
                         </label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="chkAdsets" checked>
+                        <input class="form-check-input" type="checkbox" id="chkAdsets">
                         <label class="form-check-label" for="chkAdsets">
                             <i class="bi bi-collection me-1"></i> AdSets
                         </label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="chkAds" checked>
+                        <input class="form-check-input" type="checkbox" id="chkAds">
                         <label class="form-check-label" for="chkAds">
                             <i class="bi bi-file-earmark-play me-1"></i> Ads
                         </label>
                     </div>
                 </div>
 
-                <button class="btn btn-primary btn-action w-100" onclick="iniciarExtraccion()">
-                    <i class="bi bi-cloud-download me-2"></i>Iniciar Extraccion
+                <div class="mb-3">
+                    <label class="form-label d-flex justify-content-between align-items-center">
+                        <span>Seleccionar Cuentas</span>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllCuentas()">
+                                Todas
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllCuentas()">
+                                Ninguna
+                            </button>
+                        </div>
+                    </label>
+                    <div class="border rounded p-2" style="max-height: 250px; overflow-y: auto;">
+                        {% for cuenta in cuentas %}
+                        <div class="form-check">
+                            <input class="form-check-input cuenta-checkbox" type="checkbox"
+                                   value="{{ cuenta.account_key }}"
+                                   id="cuenta_{{ cuenta.account_key }}"
+                                   data-nombre="{{ cuenta.account_name }}">
+                            <label class="form-check-label" for="cuenta_{{ cuenta.account_key }}">
+                                <strong>[{{ cuenta.account_key }}]</strong> {{ cuenta.account_name }}
+                                <small class="text-muted d-block">{{ cuenta.marcas }}</small>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Delay entre cuentas (segundos)</label>
+                    <input type="number" class="form-control" id="delaySegundos" value="5" min="1" max="60">
+                    <small class="text-muted">Tiempo de espera entre cada cuenta para evitar rate limits</small>
+                </div>
+
+                <button class="btn btn-primary btn-action w-100" onclick="iniciarExtraccionMasiva()" id="btnIniciar">
+                    <i class="bi bi-cloud-download me-2"></i>Iniciar Extraccion Masiva
+                </button>
+
+                <button class="btn btn-danger btn-action w-100 mt-2 d-none" onclick="detenerExtraccion()" id="btnDetener">
+                    <i class="bi bi-stop-circle me-2"></i>Detener Extraccion
                 </button>
             </div>
         </div>
@@ -65,23 +91,29 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title mb-4"><i class="bi bi-terminal me-2"></i>Log de Extraccion</h5>
-                <div id="logContainer" class="bg-dark text-light p-3 rounded" style="height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title mb-0"><i class="bi bi-terminal me-2"></i>Log de Extraccion</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearLog()">
+                        <i class="bi bi-trash"></i> Limpiar
+                    </button>
+                </div>
+                <div id="logContainer" class="bg-dark text-light p-3 rounded" style="height: 400px; overflow-y: auto; font-family: monospace; font-size: 12px;">
                     <div class="text-muted">Esperando extraccion...</div>
+                </div>
+
+                <!-- Progress -->
+                <div class="mt-3 d-none" id="progressContainer">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span id="progressText">Procesando...</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar" style="width: 0%" id="progressBar"></div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Extraction All -->
-<div class="card mb-4">
-    <div class="card-body">
-        <h5 class="card-title mb-4"><i class="bi bi-lightning-charge me-2"></i>Extraccion Masiva</h5>
-        <p class="text-muted">Extrae datos de todas las cuentas configuradas. Este proceso puede tardar varios minutos.</p>
-        <button class="btn btn-warning btn-action" onclick="extraccionMasiva()">
-            <i class="bi bi-cloud-download me-2"></i>Extraer TODAS las Cuentas
-        </button>
     </div>
 </div>
 
@@ -95,14 +127,15 @@
                     <tr>
                         <th>Cuenta</th>
                         <th>Tipo</th>
-                        <th>Registros</th>
+                        <th>Insertados</th>
+                        <th>Actualizados</th>
                         <th>Estado</th>
                         <th>Fecha</th>
                     </tr>
                 </thead>
                 <tbody id="tablaResultados">
                     <tr>
-                        <td colspan="5" class="text-center text-muted">
+                        <td colspan="6" class="text-center text-muted">
                             Inicia una extraccion para ver los resultados
                         </td>
                     </tr>
@@ -116,13 +149,16 @@
 {% block extra_js %}
 <script>
 const logContainer = document.getElementById('logContainer');
+let stopExtraction = false;
+let extractionResults = [];
 
 function addLog(message, type = 'info') {
     const colors = {
         'info': '#17a2b8',
         'success': '#28a745',
         'error': '#dc3545',
-        'warning': '#ffc107'
+        'warning': '#ffc107',
+        'highlight': '#00ff00'
     };
     const timestamp = new Date().toLocaleTimeString();
     const line = document.createElement('div');
@@ -132,13 +168,61 @@ function addLog(message, type = 'info') {
 }
 
 function clearLog() {
-    logContainer.innerHTML = '';
+    logContainer.innerHTML = '<div class="text-muted">Esperando extraccion...</div>';
+    extractionResults = [];
+    document.getElementById('tablaResultados').innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center text-muted">
+                Inicia una extraccion para ver los resultados
+            </td>
+        </tr>
+    `;
 }
 
-async function iniciarExtraccion() {
-    const accountKey = document.getElementById('selectCuenta').value;
-    if (!accountKey) {
-        showAlert('Por favor selecciona una cuenta', 'warning');
+function selectAllCuentas() {
+    document.querySelectorAll('.cuenta-checkbox').forEach(cb => cb.checked = true);
+}
+
+function deselectAllCuentas() {
+    document.querySelectorAll('.cuenta-checkbox').forEach(cb => cb.checked = false);
+}
+
+function updateProgress(current, total, text) {
+    const percent = Math.round((current / total) * 100);
+    document.getElementById('progressBar').style.width = `${percent}%`;
+    document.getElementById('progressPercent').textContent = `${percent}%`;
+    document.getElementById('progressText').textContent = text;
+}
+
+function showProgress() {
+    document.getElementById('progressContainer').classList.remove('d-none');
+}
+
+function hideProgress() {
+    document.getElementById('progressContainer').classList.add('d-none');
+}
+
+function detenerExtraccion() {
+    stopExtraction = true;
+    addLog('Deteniendo extraccion...', 'warning');
+}
+
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function iniciarExtraccionMasiva() {
+    // Obtener cuentas seleccionadas
+    const cuentasSeleccionadas = [];
+    document.querySelectorAll('.cuenta-checkbox:checked').forEach(cb => {
+        cuentasSeleccionadas.push({
+            key: cb.value,
+            nombre: cb.dataset.nombre
+        });
+    });
+
+    if (cuentasSeleccionadas.length === 0) {
+        showAlert('Por favor selecciona al menos una cuenta', 'warning');
         return;
     }
 
@@ -151,96 +235,153 @@ async function iniciarExtraccion() {
         return;
     }
 
+    const delaySeconds = parseInt(document.getElementById('delaySegundos').value) || 5;
+
+    // Reset
+    stopExtraction = false;
+    extractionResults = [];
     clearLog();
-    addLog('Iniciando extraccion...', 'info');
-    showLoading('Extrayendo datos de Meta API...');
 
-    const results = [];
+    // UI
+    document.getElementById('btnIniciar').classList.add('d-none');
+    document.getElementById('btnDetener').classList.remove('d-none');
+    showProgress();
 
-    try {
-        // Extract Campaigns
-        if (extractCampaigns) {
-            addLog('Extrayendo Campaigns...', 'info');
-            const response = await fetch(`/auto/marketing/campaigns/sync/?account_key=${accountKey}`, { method: 'POST' });
-            const data = await response.json();
-            if (data.status === 'success') {
-                addLog(`Campaigns: ${data.inserted || 0} insertados, ${data.updated || 0} actualizados`, 'success');
-                results.push({ tipo: 'Campaigns', registros: (data.inserted || 0) + (data.updated || 0), estado: 'success' });
-            } else {
-                addLog(`Error Campaigns: ${data.message}`, 'error');
-                results.push({ tipo: 'Campaigns', registros: 0, estado: 'error' });
+    const tiposSeleccionados = [];
+    if (extractCampaigns) tiposSeleccionados.push('campaigns');
+    if (extractAdsets) tiposSeleccionados.push('adsets');
+    if (extractAds) tiposSeleccionados.push('ads');
+
+    const totalOperaciones = cuentasSeleccionadas.length * tiposSeleccionados.length;
+    let operacionActual = 0;
+
+    addLog(`Iniciando extraccion masiva...`, 'highlight');
+    addLog(`Cuentas: ${cuentasSeleccionadas.length} | Tipos: ${tiposSeleccionados.join(', ')}`, 'info');
+    addLog(`Total de operaciones: ${totalOperaciones}`, 'info');
+    addLog(`Delay entre cuentas: ${delaySeconds} segundos`, 'info');
+    addLog('─'.repeat(50), 'info');
+
+    for (let i = 0; i < cuentasSeleccionadas.length; i++) {
+        if (stopExtraction) {
+            addLog('Extraccion detenida por el usuario', 'warning');
+            break;
+        }
+
+        const cuenta = cuentasSeleccionadas[i];
+        addLog(``, 'info');
+        addLog(`📁 [${i + 1}/${cuentasSeleccionadas.length}] Procesando: ${cuenta.nombre}`, 'highlight');
+
+        for (const tipo of tiposSeleccionados) {
+            if (stopExtraction) break;
+
+            operacionActual++;
+            updateProgress(operacionActual, totalOperaciones, `${cuenta.nombre} - ${tipo}`);
+
+            try {
+                addLog(`  ↳ Extrayendo ${tipo}...`, 'info');
+
+                const response = await fetch(`/auto/marketing/${tipo}/sync/?account_key=${cuenta.key}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const inserted = data.inserted || 0;
+                    const updated = data.updated || 0;
+                    addLog(`  ✓ ${tipo}: ${inserted} insertados, ${updated} actualizados`, 'success');
+
+                    extractionResults.push({
+                        cuenta: cuenta.nombre,
+                        tipo: tipo,
+                        inserted: inserted,
+                        updated: updated,
+                        estado: 'success'
+                    });
+                } else {
+                    addLog(`  ✗ ${tipo}: ${data.message}`, 'error');
+                    extractionResults.push({
+                        cuenta: cuenta.nombre,
+                        tipo: tipo,
+                        inserted: 0,
+                        updated: 0,
+                        estado: 'error',
+                        message: data.message
+                    });
+                }
+            } catch (error) {
+                addLog(`  ✗ ${tipo}: ${error.message}`, 'error');
+                extractionResults.push({
+                    cuenta: cuenta.nombre,
+                    tipo: tipo,
+                    inserted: 0,
+                    updated: 0,
+                    estado: 'error',
+                    message: error.message
+                });
             }
         }
 
-        // Extract AdSets
-        if (extractAdsets) {
-            addLog('Extrayendo AdSets...', 'info');
-            const response = await fetch(`/auto/marketing/adsets/sync/?account_key=${accountKey}`, { method: 'POST' });
-            const data = await response.json();
-            if (data.status === 'success') {
-                addLog(`AdSets: ${data.inserted || 0} insertados, ${data.updated || 0} actualizados`, 'success');
-                results.push({ tipo: 'AdSets', registros: (data.inserted || 0) + (data.updated || 0), estado: 'success' });
-            } else {
-                addLog(`Error AdSets: ${data.message}`, 'error');
-                results.push({ tipo: 'AdSets', registros: 0, estado: 'error' });
-            }
+        // Delay entre cuentas (excepto la ultima)
+        if (i < cuentasSeleccionadas.length - 1 && !stopExtraction) {
+            addLog(`  ⏳ Esperando ${delaySeconds} segundos...`, 'warning');
+            await sleep(delaySeconds * 1000);
         }
-
-        // Extract Ads
-        if (extractAds) {
-            addLog('Extrayendo Ads...', 'info');
-            const response = await fetch(`/auto/marketing/ads/sync/?account_key=${accountKey}`, { method: 'POST' });
-            const data = await response.json();
-            if (data.status === 'success') {
-                addLog(`Ads: ${data.ads_count || 0} extraidos`, 'success');
-                results.push({ tipo: 'Ads', registros: data.ads_count || 0, estado: 'success' });
-            } else {
-                addLog(`Error Ads: ${data.message}`, 'error');
-                results.push({ tipo: 'Ads', registros: 0, estado: 'error' });
-            }
-        }
-
-        hideLoading();
-        addLog('Extraccion completada!', 'success');
-        showAlert('Extraccion completada exitosamente', 'success');
-        updateResultsTable(accountKey, results);
-
-    } catch (error) {
-        hideLoading();
-        addLog(`Error: ${error.message}`, 'error');
-        showAlert(`Error: ${error.message}`, 'danger');
     }
+
+    // Finalizar
+    addLog('─'.repeat(50), 'info');
+    addLog(`Extraccion ${stopExtraction ? 'detenida' : 'completada'}!`, stopExtraction ? 'warning' : 'success');
+
+    // Resumen
+    const exitosos = extractionResults.filter(r => r.estado === 'success').length;
+    const errores = extractionResults.filter(r => r.estado === 'error').length;
+    const totalInserted = extractionResults.reduce((sum, r) => sum + r.inserted, 0);
+    const totalUpdated = extractionResults.reduce((sum, r) => sum + r.updated, 0);
+
+    addLog(`Resumen: ${exitosos} exitosos, ${errores} errores`, 'info');
+    addLog(`Total: ${totalInserted} insertados, ${totalUpdated} actualizados`, 'info');
+
+    // UI
+    document.getElementById('btnIniciar').classList.remove('d-none');
+    document.getElementById('btnDetener').classList.add('d-none');
+    hideProgress();
+
+    updateResultsTable();
+    showAlert(`Extraccion completada: ${exitosos} exitosos, ${errores} errores`, exitosos > 0 ? 'success' : 'warning');
 }
 
-function updateResultsTable(accountKey, results) {
+function updateResultsTable() {
     const tbody = document.getElementById('tablaResultados');
     tbody.innerHTML = '';
 
-    results.forEach(r => {
+    if (extractionResults.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted">
+                    No hay resultados
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    extractionResults.forEach(r => {
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td>Cuenta ${accountKey}</td>
-            <td>${r.tipo}</td>
-            <td>${r.registros}</td>
-            <td><span class="badge bg-${r.estado === 'success' ? 'success' : 'danger'}">${r.estado === 'success' ? 'OK' : 'Error'}</span></td>
+            <td>${r.cuenta}</td>
+            <td><span class="badge bg-secondary">${r.tipo}</span></td>
+            <td>${r.inserted}</td>
+            <td>${r.updated}</td>
+            <td>
+                <span class="badge bg-${r.estado === 'success' ? 'success' : 'danger'}">
+                    ${r.estado === 'success' ? 'OK' : 'Error'}
+                </span>
+                ${r.message ? `<small class="d-block text-danger">${r.message.substring(0, 50)}...</small>` : ''}
+            </td>
             <td>${new Date().toLocaleString()}</td>
         `;
         tbody.appendChild(row);
     });
-}
-
-async function extraccionMasiva() {
-    if (!confirm('Esto extraera datos de TODAS las cuentas. El proceso puede tardar varios minutos. Continuar?')) {
-        return;
-    }
-
-    clearLog();
-    addLog('Iniciando extraccion masiva...', 'warning');
-    showLoading('Extrayendo datos de todas las cuentas...');
-
-    // TODO: Implementar extraccion masiva
-    addLog('Funcion en desarrollo...', 'info');
-    hideLoading();
 }
 </script>
 {% endblock %}
