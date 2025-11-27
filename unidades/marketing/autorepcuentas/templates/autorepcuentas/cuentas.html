@@ -1,0 +1,166 @@
+{% extends 'autorepcuentas/base.html' %}
+
+{% block title %}Cuentas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-people me-2"></i>Gestion de Cuentas</h2>
+    <button class="btn btn-primary btn-action" onclick="sincronizarCuentas()">
+        <i class="bi bi-arrow-repeat me-2"></i>Sincronizar desde Config
+    </button>
+</div>
+
+<!-- Info Card -->
+<div class="alert alert-info mb-4">
+    <i class="bi bi-info-circle me-2"></i>
+    Las cuentas se cargan automaticamente desde <strong>config.json</strong>.
+    Haz clic en "Sincronizar desde Config" para actualizar la base de datos local.
+</div>
+
+<!-- Stats -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-primary text-white me-3">
+                    <i class="bi bi-people"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">Total Cuentas</h6>
+                    <h3 class="mb-0">{{ total_cuentas }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-success text-white me-3">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">Cuentas Activas</h6>
+                    <h3 class="mb-0">{{ cuentas_activas }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-info text-white me-3">
+                    <i class="bi bi-buildings"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">Multimarca</h6>
+                    <h3 class="mb-0">{{ cuentas_multimarca }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Accounts Table -->
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title mb-4"><i class="bi bi-table me-2"></i>Lista de Cuentas</h5>
+        <div class="table-responsive">
+            <table class="table table-modern table-hover" id="tablaCuentas">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Account ID</th>
+                        <th>Nombre</th>
+                        <th>Marcas</th>
+                        <th>Multimarca</th>
+                        <th>Estado</th>
+                        <th>Ultima Sync</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cuenta in cuentas %}
+                    <tr>
+                        <td><strong>{{ cuenta.account_key }}</strong></td>
+                        <td><code>{{ cuenta.account_id }}</code></td>
+                        <td>{{ cuenta.account_name }}</td>
+                        <td><small>{{ cuenta.marcas|truncatechars:40 }}</small></td>
+                        <td>
+                            {% if cuenta.multimarca == 'Si' %}
+                            <span class="badge bg-info">Si</span>
+                            {% else %}
+                            <span class="badge bg-secondary">No</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cuenta.is_active %}
+                            <span class="badge bg-success">Activa</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inactiva</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cuenta.last_sync_date %}
+                            {{ cuenta.last_sync_date|date:"d/m/Y H:i" }}
+                            {% else %}
+                            <span class="text-muted">Nunca</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="verCuenta('{{ cuenta.account_id }}')" title="Ver detalles">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" onclick="extraerDatos('{{ cuenta.account_key }}')" title="Extraer datos">
+                                <i class="bi bi-cloud-download"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4">
+                            <i class="bi bi-inbox display-4 text-muted"></i>
+                            <p class="text-muted mt-2">No hay cuentas registradas. Haz clic en "Sincronizar desde Config".</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function sincronizarCuentas() {
+    showLoading('Sincronizando cuentas desde config.json...');
+
+    try {
+        const response = await fetch('/auto/marketing/accounts/sync/');
+        const data = await response.json();
+
+        hideLoading();
+
+        if (data.status === 'success') {
+            showAlert(`Cuentas sincronizadas correctamente. Insertadas: ${data.inserted || 0}, Actualizadas: ${data.updated || 0}`, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showAlert(`Error: ${data.message}`, 'danger');
+        }
+    } catch (error) {
+        hideLoading();
+        showAlert(`Error de conexion: ${error.message}`, 'danger');
+    }
+}
+
+function verCuenta(accountId) {
+    alert('Ver cuenta: ' + accountId);
+}
+
+function extraerDatos(accountKey) {
+    if (confirm('Deseas extraer datos de Meta API para esta cuenta?')) {
+        window.location.href = `/marketing/extraccion/?account_key=${accountKey}`;
+    }
+}
+</script>
+{% endblock %}

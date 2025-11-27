@@ -1,0 +1,184 @@
+{% extends 'autorepcuentas/base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-speedometer2 me-2"></i>Dashboard de Marketing</h2>
+    <span class="badge bg-primary fs-6">{{ fecha_actual }}</span>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-primary text-white me-3">
+                    <i class="bi bi-people"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">Cuentas Activas</h6>
+                    <h3 class="mb-0">{{ total_cuentas }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-success text-white me-3">
+                    <i class="bi bi-megaphone"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">Campanas</h6>
+                    <h3 class="mb-0">{{ total_campaigns }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-warning text-white me-3">
+                    <i class="bi bi-collection"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">AdSets</h6>
+                    <h3 class="mb-0">{{ total_adsets }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-info text-white me-3">
+                    <i class="bi bi-file-earmark-play"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">Ads</h6>
+                    <h3 class="mb-0">{{ total_ads }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4"><i class="bi bi-lightning-charge me-2"></i>Acciones Rapidas</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <a href="{% url 'marketing_cuentas' %}" class="btn btn-primary btn-action w-100 mb-2">
+                            <i class="bi bi-arrow-repeat me-2"></i>Sincronizar Cuentas
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'marketing_extraccion' %}" class="btn btn-success btn-action w-100 mb-2">
+                            <i class="bi bi-cloud-download me-2"></i>Extraer Datos
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="{% url 'marketing_reportes' %}" class="btn btn-warning btn-action w-100 mb-2">
+                            <i class="bi bi-file-earmark-excel me-2"></i>Generar Reporte
+                        </a>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-info btn-action w-100 mb-2" onclick="refreshStats()">
+                            <i class="bi bi-arrow-clockwise me-2"></i>Actualizar Stats
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4"><i class="bi bi-clock-history me-2"></i>Ultimas Cuentas</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>#</th>
+                                <th>Nombre</th>
+                                <th>Marcas</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cuenta in ultimas_cuentas %}
+                            <tr>
+                                <td>{{ cuenta.account_key }}</td>
+                                <td>{{ cuenta.account_name }}</td>
+                                <td><small>{{ cuenta.marcas|truncatechars:30 }}</small></td>
+                                <td>
+                                    {% if cuenta.is_active %}
+                                    <span class="badge bg-success">Activa</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">Inactiva</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">No hay cuentas registradas</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4"><i class="bi bi-bar-chart me-2"></i>Resumen de Inversion</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Cuenta</th>
+                                <th>Inversion Total</th>
+                                <th>Impresiones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for resumen in resumen_inversion %}
+                            <tr>
+                                <td>{{ resumen.account_name|truncatechars:25 }}</td>
+                                <td><strong>${{ resumen.total_spend|floatformat:2 }}</strong></td>
+                                <td>{{ resumen.total_impressions|default:0 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted">No hay datos de inversion</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function refreshStats() {
+    showLoading('Actualizando estadisticas...');
+    setTimeout(() => {
+        location.reload();
+    }, 500);
+}
+</script>
+{% endblock %}

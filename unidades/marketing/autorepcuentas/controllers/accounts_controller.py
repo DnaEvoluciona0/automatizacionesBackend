@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-ACCOUNTS CONTROLLER - LEO MASTER
+ACCOUNTS CONTROLLER - AutoRepCuentas
 Controlador para operaciones con cuentas
+Usa Django ORM para PostgreSQL local
 """
 
 import os
@@ -13,8 +14,8 @@ from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from ..conexiones.connection_supabase import SupabaseAPI
 from ..conexiones.connection_meta_api import MetaAPI
+from ..models import Accounts
 
 
 # --------------------------------------------------------------------------------------------------
@@ -47,7 +48,7 @@ def get_all_accounts():
 
 # --------------------------------------------------------------------------------------------------
 # * Función: sync_accounts_to_supabase
-# * Descripción: Sincroniza las cuentas del config.json con Supabase
+# * Descripción: Sincroniza las cuentas del config.json con PostgreSQL local usando Django ORM
 #
 # ! Parámetros:
 #   - No recibe ningún parámetro
@@ -57,7 +58,7 @@ def get_all_accounts():
 #   - Caso error: { status: 'error', message: '...' }
 # --------------------------------------------------------------------------------------------------
 def sync_accounts_to_supabase():
-    """Sincroniza las cuentas con Supabase"""
+    """Sincroniza las cuentas con PostgreSQL local usando Django ORM"""
     try:
         meta_api = MetaAPI()
         accounts = meta_api.get_all_accounts()
@@ -67,9 +68,6 @@ def sync_accounts_to_supabase():
                 'status': 'error',
                 'message': 'No se encontraron cuentas en config.json'
             }
-
-        supabase_api = SupabaseAPI()
-        supabase = supabase_api.get_client()
 
         stats = {
             'insertadas': 0,
@@ -83,53 +81,63 @@ def sync_accounts_to_supabase():
                 account_id = account_data.get('account_id')
                 account_name = account_data.get('nombre', 'Sin nombre')
 
-                # Preparar registro para Supabase
-                account_record = {
-                    'account_id': account_id,
-                    'account_name': account_name,
-                    'account_key': account_key,
-                    'multimarca': account_data.get('multimarca', 'No'),
-                    'marcas': account_data.get('marcas', ''),
-                    'app_id': account_data.get('app_id', ''),
-                    'has_valid_token': bool(account_data.get('access_token')),
-                    'last_sync_date': datetime.now().isoformat(),
-                    'is_active': True
-                }
+                # Verificar si existe usando Django ORM
+                try:
+                    existing = Accounts.objects.get(account_id=account_id)
 
-                # Verificar si existe
-                existing = supabase.table('accounts').select('*').eq(
-                    'account_id', account_id
-                ).execute()
-
-                if not existing.data:
-                    # No existe, insertar
-                    supabase.table('accounts').insert(account_record).execute()
-                    stats['insertadas'] += 1
-                else:
                     # Existe, verificar si necesita actualización
-                    existing_record = existing.data[0]
-
                     needs_update = False
-                    for field in ['account_name', 'marcas', 'multimarca', 'app_id', 'has_valid_token']:
-                        if existing_record.get(field) != account_record.get(field):
-                            needs_update = True
-                            break
+
+                    if existing.account_name != account_name:
+                        existing.account_name = account_name
+                        needs_update = True
+
+                    if existing.marcas != account_data.get('marcas', ''):
+                        existing.marcas = account_data.get('marcas', '')
+                        needs_update = True
+
+                    if existing.multimarca != account_data.get('multimarca', 'No'):
+                        existing.multimarca = account_data.get('multimarca', 'No')
+                        needs_update = True
+
+                    if existing.app_id != account_data.get('app_id', ''):
+                        existing.app_id = account_data.get('app_id', '')
+                        needs_update = True
+
+                    has_token = bool(account_data.get('access_token'))
+                    if existing.has_valid_token != has_token:
+                        existing.has_valid_token = has_token
+                        needs_update = True
 
                     if needs_update:
-                        # Actualizar
-                        account_record['updated_at'] = datetime.now().isoformat()
-                        supabase.table('accounts').update(account_record).eq(
-                            'account_id', account_id
-                        ).execute()
+                        existing.updated_at = datetime.now()
+                        existing.last_sync_date = datetime.now()
+                        existing.save()
                         stats['actualizadas'] += 1
                     else:
-                        # Sin cambios
-                        supabase.table('accounts').update({
-                            'last_sync_date': datetime.now().isoformat()
-                        }).eq('account_id', account_id).execute()
+                        existing.last_sync_date = datetime.now()
+                        existing.save(update_fields=['last_sync_date'])
                         stats['sin_cambios'] += 1
 
-            except Exception:
+                except Accounts.DoesNotExist:
+                    # No existe, crear nuevo
+                    Accounts.objects.create(
+                        account_id=account_id,
+                        account_name=account_name,
+                        account_key=account_key,
+                        multimarca=account_data.get('multimarca', 'No'),
+                        marcas=account_data.get('marcas', ''),
+                        app_id=account_data.get('app_id', ''),
+                        has_valid_token=bool(account_data.get('access_token')),
+                        is_active=True,
+                        created_at=datetime.now(),
+                        updated_at=datetime.now(),
+                        last_sync_date=datetime.now()
+                    )
+                    stats['insertadas'] += 1
+
+            except Exception as e:
+                print(f"Error procesando cuenta {account_key}: {str(e)}")
                 stats['errores'] += 1
                 continue
 
