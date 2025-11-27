@@ -8,10 +8,13 @@ Vistas de Django para paginas web del sistema de marketing
 
 import os
 import json
+import pandas as pd
+from io import BytesIO
 from datetime import datetime, timedelta
+from decimal import Decimal
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, Value
 from django.db.models.functions import Coalesce
 
 from ..models import Accounts, Campaigns, Adsets, Ads
@@ -37,23 +40,34 @@ def get_config():
 def dashboard(request):
     """Vista principal del dashboard de marketing"""
 
-    # Obtener estadisticas
-    total_cuentas = Accounts.objects.filter(is_active=True).count()
-    total_campaigns = Campaigns.objects.values('campaign_id').distinct().count()
-    total_adsets = Adsets.objects.values('adset_id').distinct().count()
-    total_ads = Ads.objects.values('ad_id').distinct().count()
+    try:
+        # Obtener estadisticas
+        total_cuentas = Accounts.objects.filter(is_active=True).count()
+        total_campaigns = Campaigns.objects.values('campaign_id').distinct().count()
+        total_adsets = Adsets.objects.values('adset_id').distinct().count()
+        total_ads = Ads.objects.values('ad_id').distinct().count()
 
-    # Ultimas cuentas
-    ultimas_cuentas = Accounts.objects.filter(is_active=True).order_by('account_key')[:5]
+        # Ultimas cuentas - ordenar por account_id si account_key da problemas
+        ultimas_cuentas = Accounts.objects.filter(is_active=True).order_by('account_id')[:5]
 
-    # Resumen de inversion por cuenta (ultimos 30 dias)
-    fecha_inicio = datetime.now() - timedelta(days=30)
-    resumen_inversion = Campaigns.objects.filter(
-        insights_date_start__gte=fecha_inicio
-    ).values('account_name').annotate(
-        total_spend=Coalesce(Sum('spend'), 0),
-        total_impressions=Coalesce(Sum('impressions'), 0)
-    ).order_by('-total_spend')[:5]
+        # Resumen de inversion por cuenta (ultimos 30 dias)
+        fecha_inicio = datetime.now() - timedelta(days=30)
+        resumen_inversion = Campaigns.objects.filter(
+            insights_date_start__gte=fecha_inicio
+        ).values('account_name').annotate(
+            total_spend=Coalesce(Sum('spend'), Value(Decimal('0'))),
+            total_impressions=Coalesce(Sum('impressions'), Value(0))
+        ).order_by('-total_spend')[:5]
+
+    except Exception as e:
+        # Si hay error, usar valores por defecto
+        total_cuentas = 0
+        total_campaigns = 0
+        total_adsets = 0
+        total_ads = 0
+        ultimas_cuentas = []
+        resumen_inversion = []
+        print(f"Error en dashboard: {str(e)}")
 
     context = {
         'active_page': 'dashboard',
@@ -76,13 +90,20 @@ def dashboard(request):
 def cuentas(request):
     """Vista de gestion de cuentas"""
 
-    # Obtener cuentas de la base de datos
-    cuentas_list = Accounts.objects.all().order_by('account_key')
+    try:
+        # Obtener cuentas de la base de datos
+        cuentas_list = Accounts.objects.all().order_by('account_id')
 
-    # Estadisticas
-    total_cuentas = cuentas_list.count()
-    cuentas_activas = cuentas_list.filter(is_active=True).count()
-    cuentas_multimarca = cuentas_list.filter(multimarca='Si').count()
+        # Estadisticas
+        total_cuentas = cuentas_list.count()
+        cuentas_activas = cuentas_list.filter(is_active=True).count()
+        cuentas_multimarca = cuentas_list.filter(multimarca='Si').count()
+    except Exception as e:
+        cuentas_list = []
+        total_cuentas = 0
+        cuentas_activas = 0
+        cuentas_multimarca = 0
+        print(f"Error en cuentas: {str(e)}")
 
     context = {
         'active_page': 'cuentas',
@@ -133,21 +154,31 @@ def extraccion(request):
 def reportes(request):
     """Vista de generacion de reportes"""
 
-    # Obtener cuentas de la base de datos
-    cuentas_list = Accounts.objects.filter(is_active=True).order_by('account_key')
+    try:
+        # Obtener cuentas de la base de datos
+        cuentas_list = Accounts.objects.filter(is_active=True).order_by('account_id')
 
-    # Estadisticas
-    total_campaigns = Campaigns.objects.values('campaign_id').distinct().count()
-    total_adsets = Adsets.objects.values('adset_id').distinct().count()
-    total_ads = Ads.objects.values('ad_id').distinct().count()
+        # Estadisticas
+        total_campaigns = Campaigns.objects.values('campaign_id').distinct().count()
+        total_adsets = Adsets.objects.values('adset_id').distinct().count()
+        total_ads = Ads.objects.values('ad_id').distinct().count()
 
-    # Inversion total
-    total_spend = Campaigns.objects.aggregate(
-        total=Coalesce(Sum('spend'), 0)
-    )['total']
+        # Inversion total
+        total_spend = Campaigns.objects.aggregate(
+            total=Coalesce(Sum('spend'), Value(Decimal('0')))
+        )['total']
 
-    # Reportes recientes (placeholder - se puede implementar historial)
-    reportes_recientes = []
+        # Reportes recientes (placeholder - se puede implementar historial)
+        reportes_recientes = []
+
+    except Exception as e:
+        cuentas_list = []
+        total_campaigns = 0
+        total_adsets = 0
+        total_ads = 0
+        total_spend = 0
+        reportes_recientes = []
+        print(f"Error en reportes: {str(e)}")
 
     context = {
         'active_page': 'reportes',
@@ -162,15 +193,45 @@ def reportes(request):
     return render(request, 'autorepcuentas/reportes.html', context)
 
 
+def format_dataframe_for_excel(df):
+    """Formatea las columnas del DataFrame para Excel"""
+    df = df.copy()
+
+    # Formatear columnas de fecha a dd/mm/yyyy
+    date_columns = ['insights_date_start', 'insights_date_stop']
+    for col in date_columns:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col]).dt.strftime('%d/%m/%Y')
+
+    # Formatear columnas de moneda con $
+    money_columns = ['spend', 'cpm', 'cpc', 'budget_remaining', 'daily_budget',
+                     'lifetime_budget', 'bid_amount', 'social_spend']
+    for col in money_columns:
+        if col in df.columns:
+            df[col] = df[col].apply(lambda x: f"${float(x or 0):,.2f}")
+
+    # Formatear CTR como porcentaje
+    pct_columns = ['ctr', 'inline_link_click_ctr', 'unique_ctr', 'unique_inline_link_click_ctr']
+    for col in pct_columns:
+        if col in df.columns:
+            df[col] = df[col].apply(lambda x: f"{float(x or 0):.2f}%")
+
+    # Formatear numeros grandes con separador de miles
+    number_columns = ['impressions', 'clicks', 'reach', 'inline_link_clicks',
+                      'unique_clicks', 'unique_inline_link_clicks']
+    for col in number_columns:
+        if col in df.columns:
+            df[col] = df[col].apply(lambda x: f"{int(x or 0):,}")
+
+    return df
+
+
 def generar_reporte_excel(request):
     """
     Genera y descarga un reporte en formato Excel
 
     GET /marketing/reportes/generar/?tipo=campaigns&account_id=123&fecha_inicio=2025-01-01&fecha_fin=2025-01-31
     """
-    import pandas as pd
-    from io import BytesIO
-
     tipo = request.GET.get('tipo', 'campaigns')
     account_id = request.GET.get('account_id')
     fecha_inicio = request.GET.get('fecha_inicio')
@@ -181,6 +242,13 @@ def generar_reporte_excel(request):
             'status': 'error',
             'message': 'Parametros incompletos'
         }, status=400)
+
+    # Obtener nombre de la cuenta para el archivo
+    try:
+        cuenta = Accounts.objects.get(account_id=account_id)
+        account_name = cuenta.account_name.replace(' ', '_').replace('/', '-')[:30]
+    except Accounts.DoesNotExist:
+        account_name = account_id
 
     try:
         # Consultar datos segun tipo
@@ -252,18 +320,21 @@ def generar_reporte_excel(request):
                         len(set([a['adset_id'] for a in adsets])),
                         len(set([a['ad_id'] for a in ads])),
                         f"${sum([float(c.get('spend', 0) or 0) for c in campaigns]):,.2f}",
-                        sum([int(c.get('impressions', 0) or 0) for c in campaigns]),
-                        sum([int(c.get('clicks', 0) or 0) for c in campaigns])
+                        f"{sum([int(c.get('impressions', 0) or 0) for c in campaigns]):,}",
+                        f"{sum([int(c.get('clicks', 0) or 0) for c in campaigns]):,}"
                     ]
                 }
                 pd.DataFrame(resumen_data).to_excel(writer, sheet_name='Resumen', index=False)
 
                 if campaigns:
-                    pd.DataFrame(campaigns).to_excel(writer, sheet_name='Campaigns', index=False)
+                    df_campaigns = format_dataframe_for_excel(pd.DataFrame(campaigns))
+                    df_campaigns.to_excel(writer, sheet_name='Campaigns', index=False)
                 if adsets:
-                    pd.DataFrame(adsets).to_excel(writer, sheet_name='AdSets', index=False)
+                    df_adsets = format_dataframe_for_excel(pd.DataFrame(adsets))
+                    df_adsets.to_excel(writer, sheet_name='AdSets', index=False)
                 if ads:
-                    pd.DataFrame(ads).to_excel(writer, sheet_name='Ads', index=False)
+                    df_ads = format_dataframe_for_excel(pd.DataFrame(ads))
+                    df_ads.to_excel(writer, sheet_name='Ads', index=False)
 
             output.seek(0)
 
@@ -271,7 +342,8 @@ def generar_reporte_excel(request):
                 output.read(),
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             )
-            response['Content-Disposition'] = f'attachment; filename=reporte_{tipo}_{fecha_inicio}_a_{fecha_fin}.xlsx'
+            filename = f"{account_name}_{tipo}_{fecha_inicio}_a_{fecha_fin}.xlsx"
+            response['Content-Disposition'] = f'attachment; filename={filename}'
             return response
 
         else:
@@ -292,13 +364,16 @@ def generar_reporte_excel(request):
         # Crear Excel
         df = pd.DataFrame(data)
 
+        # Calcular totales antes de formatear
+        total_spend = df['spend'].sum() if 'spend' in df.columns else 0
+        total_impressions = df['impressions'].sum() if 'impressions' in df.columns else 0
+        total_clicks = df['clicks'].sum() if 'clicks' in df.columns else 0
+
+        # Formatear DataFrame
+        df_formatted = format_dataframe_for_excel(df)
+
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # Calcular totales
-            total_spend = df['spend'].sum() if 'spend' in df.columns else 0
-            total_impressions = df['impressions'].sum() if 'impressions' in df.columns else 0
-            total_clicks = df['clicks'].sum() if 'clicks' in df.columns else 0
-
             # Hoja resumen
             resumen_data = {
                 'Concepto': ['Inversion Total', 'Total Registros', 'Impresiones', 'Clics',
@@ -309,13 +384,13 @@ def generar_reporte_excel(request):
                     f"{total_impressions:,}",
                     f"{total_clicks:,}",
                     f"{fecha_inicio} a {fecha_fin}",
-                    datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    datetime.now().strftime('%d/%m/%Y %H:%M:%S')
                 ]
             }
             pd.DataFrame(resumen_data).to_excel(writer, sheet_name='Resumen', index=False)
 
-            # Hoja de datos
-            df.to_excel(writer, sheet_name='Datos', index=False)
+            # Hoja de datos formateados
+            df_formatted.to_excel(writer, sheet_name='Datos', index=False)
 
         output.seek(0)
 
@@ -323,7 +398,8 @@ def generar_reporte_excel(request):
             output.read(),
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
-        response['Content-Disposition'] = f'attachment; filename=reporte_{tipo}_{fecha_inicio}_a_{fecha_fin}.xlsx'
+        filename = f"{account_name}_{tipo}_{fecha_inicio}_a_{fecha_fin}.xlsx"
+        response['Content-Disposition'] = f'attachment; filename={filename}'
         return response
 
     except Exception as e:

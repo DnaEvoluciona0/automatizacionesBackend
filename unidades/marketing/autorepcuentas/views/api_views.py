@@ -8,6 +8,7 @@ Views de Django para endpoints HTTP de Meta Ads
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 from ..controllers import accounts_controller, campaigns_controller, adsets_controller, ads_controller
 from ..conexiones.connection_meta_api import MetaAPI
 
@@ -94,10 +95,11 @@ def extract_campaigns(request):
         }, status=500)
 
 
+@csrf_exempt
 @require_http_methods(["POST"])
 def sync_campaigns(request):
     """
-    Sincroniza campañas e insights con Supabase
+    Sincroniza campañas e insights con PostgreSQL
 
     POST /auto/marketing/campaigns/sync/?account_key=1
 
@@ -195,10 +197,11 @@ def extract_adsets(request):
         }, status=500)
 
 
+@csrf_exempt
 @require_http_methods(["POST"])
 def sync_adsets(request):
     """
-    Sincroniza adsets e insights con Supabase
+    Sincroniza adsets e insights con PostgreSQL
 
     POST /auto/marketing/adsets/sync/?account_key=1
     """
@@ -232,9 +235,9 @@ def sync_adsets(request):
         if insights_result['status'] != 'success':
             return JsonResponse(insights_result, status=500)
 
-        insights_dict = insights_result['insights']
+        insights_dict = insights_result['insights_dict']
 
-        # 3. Sincronizar con Supabase
+        # 3. Sincronizar con PostgreSQL
         sync_result = adsets_controller.sync_adsets_to_supabase(
             adsets_data, insights_dict, account_data
         )
@@ -287,10 +290,11 @@ def extract_ads(request):
         }, status=500)
 
 
+@csrf_exempt
 @require_http_methods(["POST"])
 def sync_ads(request):
     """
-    Sincroniza ads e insights con Supabase
+    Sincroniza ads e insights con PostgreSQL
 
     POST /auto/marketing/ads/sync/?account_key=1
     """
@@ -326,16 +330,10 @@ def sync_ads(request):
 
         insights_dict = insights_result['insights']
 
-        # 3. Sincronizar con Supabase (si tienes la función en ads_controller)
-        # sync_result = ads_controller.sync_ads_to_supabase(ads_data, insights_dict, account_data)
+        # 3. Sincronizar con PostgreSQL
+        sync_result = ads_controller.sync_ads_to_supabase(ads_data, insights_dict, account_data)
 
-        # Por ahora retornamos los datos extraídos
-        return JsonResponse({
-            'status': 'success',
-            'message': 'Ads e insights extraídos correctamente',
-            'ads_count': len(ads_data),
-            'insights_count': len(insights_dict)
-        })
+        return JsonResponse(sync_result)
 
     except Exception as e:
         return JsonResponse({
