@@ -1,0 +1,290 @@
+{% extends 'autorepcuentas/base.html' %}
+
+{% block title %}Generar Reportes{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-file-earmark-excel me-2"></i>Generador de Reportes</h2>
+</div>
+
+<!-- Report Generator -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-4"><i class="bi bi-gear me-2"></i>Configurar Reporte</h5>
+
+                <form id="formReporte">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Tipo de Reporte</label>
+                            <select class="form-select" id="tipoReporte" required>
+                                <option value="campaigns">Campaigns (Campanas)</option>
+                                <option value="adsets">AdSets (Conjuntos de Anuncios)</option>
+                                <option value="ads">Ads (Anuncios)</option>
+                                <option value="consolidado">Consolidado (Todo)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Cuenta</label>
+                            <select class="form-select" id="selectCuentaReporte" required>
+                                <option value="">-- Selecciona una cuenta --</option>
+                                {% for cuenta in cuentas %}
+                                <option value="{{ cuenta.account_id }}">
+                                    [{{ cuenta.account_key }}] {{ cuenta.account_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Fecha Inicio</label>
+                            <input type="date" class="form-control" id="fechaInicio" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Fecha Fin</label>
+                            <input type="date" class="form-control" id="fechaFin" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="ultimos30" onchange="toggleFechas()">
+                            <label class="form-check-label" for="ultimos30">
+                                Usar ultimos 30 dias
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-primary btn-action" onclick="generarReporte()">
+                            <i class="bi bi-file-earmark-excel me-2"></i>Generar Reporte Excel
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="limpiarFormulario()">
+                            <i class="bi bi-x-circle me-2"></i>Limpiar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h5 class="card-title mb-3"><i class="bi bi-info-circle me-2"></i>Informacion</h5>
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        <strong>Campaigns:</strong> Datos de campanas
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        <strong>AdSets:</strong> Conjuntos de anuncios
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        <strong>Ads:</strong> Anuncios individuales
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-check-circle text-success me-2"></i>
+                        <strong>Consolidado:</strong> Incluye todo
+                    </li>
+                </ul>
+                <hr>
+                <p class="text-muted small mb-0">
+                    <i class="bi bi-lightbulb me-1"></i>
+                    Los reportes se generan en formato Excel (.xlsx) con metricas como inversion, impresiones, clics, CTR, CPC, etc.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-primary text-white me-3">
+                    <i class="bi bi-megaphone"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">Campaigns en BD</h6>
+                    <h3 class="mb-0">{{ total_campaigns }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-success text-white me-3">
+                    <i class="bi bi-collection"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">AdSets en BD</h6>
+                    <h3 class="mb-0">{{ total_adsets }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-warning text-white me-3">
+                    <i class="bi bi-file-earmark-play"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">Ads en BD</h6>
+                    <h3 class="mb-0">{{ total_ads }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card card-stat">
+            <div class="d-flex align-items-center">
+                <div class="icon bg-gradient-info text-white me-3">
+                    <i class="bi bi-currency-dollar"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1">Inversion Total</h6>
+                    <h3 class="mb-0">${{ total_spend|floatformat:0 }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Reports -->
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title mb-4"><i class="bi bi-clock-history me-2"></i>Reportes Generados</h5>
+        <div class="table-responsive">
+            <table class="table table-modern table-hover">
+                <thead>
+                    <tr>
+                        <th>Archivo</th>
+                        <th>Tipo</th>
+                        <th>Cuenta</th>
+                        <th>Periodo</th>
+                        <th>Generado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaReportes">
+                    {% for reporte in reportes_recientes %}
+                    <tr>
+                        <td><i class="bi bi-file-earmark-excel text-success me-2"></i>{{ reporte.nombre }}</td>
+                        <td>{{ reporte.tipo }}</td>
+                        <td>{{ reporte.cuenta }}</td>
+                        <td>{{ reporte.periodo }}</td>
+                        <td>{{ reporte.fecha }}</td>
+                        <td>
+                            <a href="{{ reporte.url }}" class="btn btn-sm btn-outline-success" download>
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">
+                            No hay reportes generados aun
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Set default dates
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    document.getElementById('fechaFin').value = today.toISOString().split('T')[0];
+    document.getElementById('fechaInicio').value = thirtyDaysAgo.toISOString().split('T')[0];
+});
+
+function toggleFechas() {
+    const ultimos30 = document.getElementById('ultimos30').checked;
+    const fechaInicio = document.getElementById('fechaInicio');
+    const fechaFin = document.getElementById('fechaFin');
+
+    if (ultimos30) {
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        fechaFin.value = today.toISOString().split('T')[0];
+        fechaInicio.value = thirtyDaysAgo.toISOString().split('T')[0];
+        fechaInicio.disabled = true;
+        fechaFin.disabled = true;
+    } else {
+        fechaInicio.disabled = false;
+        fechaFin.disabled = false;
+    }
+}
+
+async function generarReporte() {
+    const tipo = document.getElementById('tipoReporte').value;
+    const accountId = document.getElementById('selectCuentaReporte').value;
+    const fechaInicio = document.getElementById('fechaInicio').value;
+    const fechaFin = document.getElementById('fechaFin').value;
+
+    if (!accountId) {
+        showAlert('Por favor selecciona una cuenta', 'warning');
+        return;
+    }
+
+    if (!fechaInicio || !fechaFin) {
+        showAlert('Por favor selecciona las fechas', 'warning');
+        return;
+    }
+
+    showLoading('Generando reporte Excel...');
+
+    try {
+        const response = await fetch(`/marketing/reportes/generar/?tipo=${tipo}&account_id=${accountId}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`);
+
+        if (response.ok) {
+            // Download the file
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reporte_${tipo}_${fechaInicio}_a_${fechaFin}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+
+            hideLoading();
+            showAlert('Reporte generado y descargado exitosamente!', 'success');
+        } else {
+            const data = await response.json();
+            hideLoading();
+            showAlert(`Error: ${data.message || 'No se pudo generar el reporte'}`, 'danger');
+        }
+    } catch (error) {
+        hideLoading();
+        showAlert(`Error: ${error.message}`, 'danger');
+    }
+}
+
+function limpiarFormulario() {
+    document.getElementById('formReporte').reset();
+    document.getElementById('ultimos30').checked = false;
+    toggleFechas();
+}
+</script>
+{% endblock %}
