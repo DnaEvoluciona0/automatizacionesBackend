@@ -16,7 +16,7 @@ class Accounts(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        db_table = '"Markeitng"."accounts"'
+        db_table = '"marketing"."accounts"'
 
 
 #? Tabla de campañas de Meta Ads con insights diarios
@@ -84,7 +84,7 @@ class Campaigns(models.Model):
     data_source = models.CharField(max_length=50, default='LEO_4.0_EXTRACTOR')
 
     class Meta:
-        db_table = '"Markeitng"."campaigns"'
+        db_table = '"marketing"."campaigns"'
         unique_together = ('campaign_id', 'insights_date_start')
 
 
@@ -158,7 +158,7 @@ class Adsets(models.Model):
     data_source = models.CharField(max_length=50, default='LEO_4.0_ADSETS_EXTRACTOR')
 
     class Meta:
-        db_table = '"Markeitng"."adsets"'
+        db_table = '"marketing"."adsets"'
         unique_together = ('adset_id', 'insights_date_start')
 
 
@@ -232,5 +232,5 @@ class Ads(models.Model):
     data_source = models.CharField(max_length=50, default='LEO_4.0_ADS_EXTRACTOR')
 
     class Meta:
-        db_table = '"Markeitng"."ads"'
+        db_table = '"marketing"."ads"'
         unique_together = ('ad_id', 'insights_date_start')

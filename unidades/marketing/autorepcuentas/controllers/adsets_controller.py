@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 """
-ADSETS CONTROLLER - LEO MASTER
+ADSETS CONTROLLER - AutoRepCuentas
 Controlador para operaciones con adsets de Meta Ads
+Usa Django ORM para PostgreSQL local
 """
 
 import os
@@ -17,10 +18,9 @@ from urllib.parse import urlencode
 # Agregar el directorio raíz al path para imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from ..conexiones.connection_supabase import SupabaseAPI
 from ..conexiones.connection_meta_api import MetaAPI
 from ..utils.date_utils import DateManager
-from ..utils.db_validator import DatabaseValidator
+from ..models import Adsets, Campaigns
 
 
 # --------------------------------------------------------------------------------------------------
@@ -267,7 +267,7 @@ def get_adsets_insights(account_data, adsets_data):
 
 # --------------------------------------------------------------------------------------------------
 # * Función: sync_adsets_to_supabase
-# * Descripción: Sincroniza adsets e insights con Supabase
+# * Descripción: Sincroniza adsets e insights con PostgreSQL usando Django ORM
 #
 # ! Parámetros:
 #   - adsets_data: list - Lista de adsets
@@ -279,7 +279,7 @@ def get_adsets_insights(account_data, adsets_data):
 #   - { status: 'error', message: '...' }
 # --------------------------------------------------------------------------------------------------
 def sync_adsets_to_supabase(adsets_data, insights_dict, account_data):
-    """Sincroniza adsets e insights con Supabase"""
+    """Sincroniza adsets e insights con PostgreSQL usando Django ORM"""
     if not adsets_data or not insights_dict:
         return {
             'status': 'error',
@@ -287,14 +287,7 @@ def sync_adsets_to_supabase(adsets_data, insights_dict, account_data):
         }
 
     try:
-        supabase_api = SupabaseAPI()
-        supabase = supabase_api.get_client()
-        validator = DatabaseValidator()
-
-        # Pre-cargar campaigns en caché
         account_id = account_data.get('account_id')
-        validator.load_campaigns_cache(account_id)
-
         stats = {'insertados': 0, 'actualizados': 0, 'saltados': 0, 'errores': 0}
 
         # Combinar adsets con insights
@@ -309,19 +302,22 @@ def sync_adsets_to_supabase(adsets_data, insights_dict, account_data):
             # Crear un registro por cada día de insights
             for daily_insight in insights_list:
                 try:
-                    combined_record = {
+                    insights_date_start = daily_insight.get('date_start')
+                    campaign_id = adset.get('campaign_id')
+
+                    if not adset_id or not insights_date_start:
+                        stats['errores'] += 1
+                        continue
+
+                    # Preparar datos para el registro
+                    record_data = {
                         'account_id': account_id,
                         'account_name': account_data.get('nombre'),
-                        'adset_id': adset_id,
                         'adset_name': adset.get('name'),
                         'adset_status': adset.get('status'),
                         'configured_status': adset.get('configured_status'),
                         'effective_status': adset.get('effective_status'),
-                        'campaign_id': adset.get('campaign_id'),
-                        'adset_created_time': adset.get('created_time'),
-                        'adset_updated_time': adset.get('updated_time'),
-                        'adset_start_time': adset.get('start_time'),
-                        'adset_end_time': adset.get('end_time'),
+                        'campaign_id': campaign_id,
                         'optimization_goal': adset.get('optimization_goal'),
                         'billing_event': adset.get('billing_event'),
                         'bid_amount': float(adset.get('bid_amount', 0)) if adset.get('bid_amount') else 0.0,
@@ -332,12 +328,11 @@ def sync_adsets_to_supabase(adsets_data, insights_dict, account_data):
                         'destination_type': adset.get('destination_type'),
                         'pacing_type': adset.get('pacing_type'),
                         'is_dynamic_creative': adset.get('is_dynamic_creative', False),
-                        'targeting': json.dumps(adset.get('targeting', {})),
-                        'attribution_spec': json.dumps(adset.get('attribution_spec', [])),
-                        'promoted_object': json.dumps(adset.get('promoted_object', {})),
-                        'extraction_date': datetime.now().isoformat(),
-                        'data_source': 'LEO_MASTER_CONTROLLER',
-                        'insights_date_start': daily_insight.get('date_start'),
+                        'targeting': json.dumps(adset.get('targeting', {})) if adset.get('targeting') else None,
+                        'attribution_spec': json.dumps(adset.get('attribution_spec', [])) if adset.get('attribution_spec') else None,
+                        'promoted_object': json.dumps(adset.get('promoted_object', {})) if adset.get('promoted_object') else None,
+                        'extraction_date': datetime.now(),
+                        'data_source': 'AUTOREPCUENTAS_CONTROLLER',
                         'insights_date_stop': daily_insight.get('date_stop'),
                         'impressions': int(daily_insight.get('impressions', 0)) if daily_insight.get('impressions') else 0,
                         'clicks': int(daily_insight.get('clicks', 0)) if daily_insight.get('clicks') else 0,
@@ -350,40 +345,66 @@ def sync_adsets_to_supabase(adsets_data, insights_dict, account_data):
                         'inline_link_clicks': int(daily_insight.get('inline_link_clicks', 0)) if daily_insight.get('inline_link_clicks') else 0,
                         'inline_link_click_ctr': float(daily_insight.get('inline_link_click_ctr', 0)) if daily_insight.get('inline_link_click_ctr') else 0.0,
                         'unique_clicks': int(daily_insight.get('unique_clicks', 0)) if daily_insight.get('unique_clicks') else 0,
-                        'unique_ctr': float(daily_insight.get('unique_ctr', 0)) if daily_insight.get('unique_ctr') else 0.0
+                        'unique_ctr': float(daily_insight.get('unique_ctr', 0)) if daily_insight.get('unique_ctr') else 0.0,
+                        'updated_at': datetime.now()
                     }
 
-                    insights_date_start = combined_record['insights_date_start']
-                    campaign_id = combined_record['campaign_id']
+                    # Parsear fechas del adset
+                    if adset.get('created_time'):
+                        try:
+                            record_data['adset_created_time'] = datetime.fromisoformat(
+                                adset['created_time'].replace('Z', '+00:00')
+                            )
+                        except:
+                            pass
 
-                    # Verificar si existe con PRIMARY KEY compuesta
-                    existing = supabase.table('adsets').select('adset_id').eq(
-                        'adset_id', adset_id
-                    ).eq(
-                        'insights_date_start', insights_date_start
-                    ).execute()
+                    if adset.get('updated_time'):
+                        try:
+                            record_data['adset_updated_time'] = datetime.fromisoformat(
+                                adset['updated_time'].replace('Z', '+00:00')
+                            )
+                        except:
+                            pass
 
-                    if existing.data:
-                        # Actualizar
-                        supabase.table('adsets').update(combined_record).eq(
-                            'adset_id', adset_id
-                        ).eq(
-                            'insights_date_start', insights_date_start
-                        ).execute()
+                    if adset.get('start_time'):
+                        try:
+                            record_data['adset_start_time'] = datetime.fromisoformat(
+                                adset['start_time'].replace('Z', '+00:00')
+                            )
+                        except:
+                            pass
+
+                    if adset.get('end_time'):
+                        try:
+                            record_data['adset_end_time'] = datetime.fromisoformat(
+                                adset['end_time'].replace('Z', '+00:00')
+                            )
+                        except:
+                            pass
+
+                    # Verificar si existe con PRIMARY KEY compuesta usando Django ORM
+                    try:
+                        existing = Adsets.objects.get(
+                            adset_id=adset_id,
+                            insights_date_start=insights_date_start
+                        )
+                        # Existe, actualizar
+                        for key, value in record_data.items():
+                            setattr(existing, key, value)
+                        existing.save()
                         stats['actualizados'] += 1
-                    else:
-                        # Validar que existe la campaña
-                        if campaign_id:
-                            can_insert, message = validator.validate_campaign_for_adset(campaign_id, account_id)
-                            if can_insert:
-                                supabase.table('adsets').insert(combined_record).execute()
-                                stats['insertados'] += 1
-                            else:
-                                stats['saltados'] += 1
-                        else:
-                            stats['saltados'] += 1
 
-                except Exception:
+                    except Adsets.DoesNotExist:
+                        # No existe, crear nuevo
+                        Adsets.objects.create(
+                            adset_id=adset_id,
+                            insights_date_start=insights_date_start,
+                            **record_data
+                        )
+                        stats['insertados'] += 1
+
+                except Exception as e:
+                    print(f"Error procesando adset {adset_id}: {str(e)}")
                     stats['errores'] += 1
 
         return {
@@ -397,5 +418,5 @@ def sync_adsets_to_supabase(adsets_data, insights_dict, account_data):
     except Exception as e:
         return {
             'status': 'error',
-            'message': f'Error sincronizando con Supabase: {str(e)}'
+            'message': f'Error sincronizando con PostgreSQL: {str(e)}'
         }
