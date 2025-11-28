@@ -18,6 +18,7 @@ from django.db.models import Sum, Count, Value
 from django.db.models.functions import Coalesce
 
 from ..models import Accounts, Campaigns, Adsets, Ads
+from ..services.token_service import TokenService
 
 
 def get_config():
@@ -407,3 +408,58 @@ def generar_reporte_excel(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+
+# =====================================
+# TOKENS
+# =====================================
+
+def tokens(request):
+    """Vista de gestión de tokens de Meta Ads"""
+    token_service = TokenService()
+    resultado = token_service.get_all_tokens_status()
+
+    context = {
+        'active_page': 'tokens',
+        'tokens': resultado.get('tokens', []),
+        'resumen': resultado.get('resumen', {}),
+        'fecha_verificacion': resultado.get('fecha_verificacion', ''),
+    }
+
+    return render(request, 'autorepcuentas/tokens.html', context)
+
+
+def verificar_tokens(request):
+    """API: Verifica el estado de todos los tokens"""
+    token_service = TokenService()
+    resultado = token_service.get_all_tokens_status()
+    return JsonResponse(resultado)
+
+
+def renovar_token(request):
+    """API: Renueva el token de una cuenta específica"""
+    account_key = request.GET.get('account_key')
+
+    if not account_key:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Parámetro account_key requerido'
+        }, status=400)
+
+    token_service = TokenService()
+    resultado = token_service.renovar_token(account_key)
+    return JsonResponse(resultado)
+
+
+def renovar_todos_tokens(request):
+    """API: Renueva todos los tokens próximos a expirar"""
+    token_service = TokenService()
+    resultado = token_service.renovar_todos(solo_proximos_a_expirar=True)
+    return JsonResponse(resultado)
+
+
+def historial_tokens(request):
+    """API: Obtiene el historial de renovaciones"""
+    token_service = TokenService()
+    resultado = token_service.get_log(limit=100)
+    return JsonResponse(resultado)
