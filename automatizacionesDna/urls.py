@@ -26,7 +26,7 @@ from unidades.administracion.reporteVentas.views.viewsClientes import pullClient
 from unidades.administracion.reporteVentas.views.viewsVentas import pullVentasOdoo, pullVentasExcel, createVentasOdoo
 from unidades.administracion.reporteVentas.views.viewsCaducidades import pullCaducidadesOdoo, createCaducidadesOdoo, updateCaducidadesOdoo
 from unidades.marketing.autorepcuentas.views.api_views import sync_accounts, sync_ads, sync_adsets, sync_campaigns, list_accounts, extract_ads, extract_adsets, extract_campaigns
-from unidades.marketing.autorepcuentas.views.web_views import dashboard, cuentas, extraccion, reportes, generar_reporte_excel
+from unidades.marketing.autorepcuentas.views.web_views import dashboard, cuentas, extraccion, reportes, generar_reporte_excel, tokens, verificar_tokens, renovar_token, renovar_todos_tokens, historial_tokens
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -79,4 +79,11 @@ urlpatterns = [
     path('marketing/extraccion/', extraccion, name='marketing_extraccion'),
     path('marketing/reportes/', reportes, name='marketing_reportes'),
     path('marketing/reportes/generar/', generar_reporte_excel, name='marketing_generar_reporte'),
+
+    #! Tokens Management
+    path('marketing/tokens/', tokens, name='marketing_tokens'),
+    path('marketing/tokens/verificar/', verificar_tokens, name='marketing_verificar_tokens'),
+    path('marketing/tokens/renovar/', renovar_token, name='marketing_renovar_token'),
+    path('marketing/tokens/renovar-todos/', renovar_todos_tokens, name='marketing_renovar_todos'),
+    path('marketing/tokens/historial/', historial_tokens, name='marketing_historial_tokens'),
 ]
