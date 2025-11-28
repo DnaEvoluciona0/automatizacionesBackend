@@ -1,6 +1,13 @@
 from django.http import JsonResponse
 
-from unidades.produccionLogistica.maxMin.models import Productos
+from django.db.models import Count, Sum, F
+from django.db.models.functions import TruncMonth
+from dateutil.relativedelta import relativedelta
+import math
+from datetime import datetime
+
+from unidades.produccionLogistica.maxMin.models import Productos, MaterialPI
+from unidades.administracion.reporteVentas.models import Ventas, VentasPVH
 from unidades.produccionLogistica.maxMin.controllers import ctrInsumo
 
 #? Consultas a Base de datos PostgreSql
@@ -311,25 +318,91 @@ def updateInsumosOdoo(request):
 #     - Caso succes:
 #           Se modifican correctamente los valores tanto en Odoo como en PostgreSQL
 # --------------------------------------------------------------------------------------------------
-def updateMaxMin(insumo, max, min):
+def updateMaxMinOdoo(request):
     try:
-
-        response = ctrInsumo.updateMaxMinOdoo(insumo.id, max, min)
-        if response['status'] == 'success':
-
-            insumo.maxActual = int(round(max))
-            insumo.minActual = int(round(min))
-
-            insumo.save(update_fields=['maxActual', 'minActual'])
+        thisYear=datetime(datetime.now().year, 1, 1)
+        lastYear = datetime(datetime.now().year - 1, 1, 1)
         
-            return ({
-                'status'  : 'success',
-                'message' : f'Se ah actualizado correctamente el insumo {insumo.nombre}'
-            })
+        insumosCompartidos = {i['hijo_id']: i for i in MaterialPI.objects.values('hijo_id').annotate(total=Count('hijo_id'), sumaCantidad=Sum(F('cantidad') * F('padre__existenciaActual'))).filter(total__gt=1)}
+        
+        ventasTotalesLastYear = {p['producto__idProductoTmp']: p for p in VentasPVH.objects.values('producto__idProductoTmp').annotate(cantidad=Sum('cantidad'), mesesVendidos=Count(TruncMonth('venta__fecha'), distinct=True)).exclude(venta__idVenta__startswith='R').filter(venta__fecha__gte=lastYear, venta__fecha__lt=thisYear)}
+        ventasTotalesThisYear = {p['producto__idProductoTmp']: p for p in VentasPVH.objects.values('producto__idProductoTmp').annotate(cantidad=Sum('cantidad'), mesesVendidos=Count(TruncMonth('venta__fecha'), distinct=True)).exclude(venta__idVenta__startswith='R').filter(venta__fecha__gte=thisYear)}
+        
+        materialesHijos = {}
+        promVCompartidas={}
+        
+        for material in MaterialPI.objects.values('padre_id', 'padre__nombre', 'padre__sku', 'padre__existenciaActual', 'padre__marca', 'padre__tipo', 'hijo_id', 'hijo__nombre', 'cantidad', 'hijo__sku', 'hijo__existenciaActual', 'hijo__existenciaOC', 'hijo__marca').order_by('padre__nombre'):
+            piezasArmar = round((material["hijo__existenciaActual"] / (material["cantidad"] if material["cantidad"] > 0 else 1)), 2)
+            pt = round(insumosCompartidos.get(material["hijo_id"], {}).get("sumaCantidad", 0) or material["padre__existenciaActual"] * material["cantidad"], 2)
+            promVData = ventasTotalesLastYear.get(material["padre_id"], {}) or ventasTotalesThisYear.get(material["padre_id"], {})
+            promV = round(promVData.get('cantidad', 0)/promVData.get('mesesVendidos', 1), 2)
+            
+            if insumosCompartidos.get(material["hijo_id"]):
+                promVCompartidas[material["hijo_id"]] = promVCompartidas.get(material["hijo_id"], 0)+promV
 
-        return ({
+            
+            materialHijo = {
+                'id': material["hijo_id"],
+                'nombre': material["hijo__nombre"],
+                'cantidad': material["cantidad"],
+                'sku': material["hijo__sku"],
+                'existenciaActual': material["hijo__existenciaActual"],
+                'piezasArmar': piezasArmar,
+                'existenciasPT': pt,
+                'existenciaOC': material["hijo__existenciaOC"],
+                'totalPiezas': material["hijo__existenciaActual"] + pt + material["hijo__existenciaOC"],
+                'promedioVentas': promV,
+                'min': 0,
+                'max': 0,
+                'sugerido': 0,
+                'total': 0,
+                'mesesInventario':0,
+                'marca': material["hijo__marca"]
+            }
+            
+            if materialesHijos.get(material["padre_id"]):
+                materialesHijos[material["padre_id"]]["materiales"].append(materialHijo)                
+                materialesHijos[material["padre_id"]]["piezasArmar"] = min(materialesHijos[material["padre_id"]]["piezasArmar"], piezasArmar)
+    
+            else:
+                materialesHijos[material["padre_id"]]={
+                    'id': material["padre_id"],
+                    'nombre': material["padre__nombre"],
+                    'sku': material["padre__sku"],
+                    'existenciaActual': material["padre__existenciaActual"],
+                    'piezasArmar': piezasArmar,
+                    'existenciasPT': material["padre__existenciaActual"],
+                    'totalPiezas': material["padre__existenciaActual"],
+                    'promedioVentas': promV,
+                    'mesesInventario': 0,
+                    'marca': material["padre__marca"],
+                    'tipo': material['padre__tipo'],
+                    'materiales': [materialHijo]
+                }
+                
+        for padre in materialesHijos.values():
+            padre["existenciasPT"] = padre["piezasArmar"] + padre["existenciaActual"]
+            padre["totalPiezas"] = padre["existenciaActual"] + padre["existenciasPT"]
+            padre["mesesInventario"] = round(padre["totalPiezas"]/padre['promedioVentas'] if padre['promedioVentas'] > 0 else 0, 2)
+            for hijo in padre["materiales"]:
+                if promVCompartidas.get(hijo["id"]):
+                    hijo["promedioVentas"] = round(hijo["cantidad"]*promVCompartidas[hijo["id"]], 2)
+                hijo["min"] = math.ceil(hijo["promedioVentas"]*3)
+                hijo["max"] = math.ceil(hijo["promedioVentas"]*6)
+                hijo["sugerido"] = math.ceil(hijo["max"]-hijo["totalPiezas"] if hijo["totalPiezas"] < hijo["max"] else 0)
+                hijo["total"]= hijo["sugerido"] + hijo["totalPiezas"]
+                hijo["mesesInventario"] = round(hijo["total"]/hijo['promedioVentas'] if hijo['promedioVentas'] != 0 else 0, 2)
+
+        response = ctrInsumo.update_maxMin()
+        if response['status'] == 'success':
+        
+            return JsonResponse({
+                'status'  : 'success',
+                'message' : materialesHijos
+            })
+        return JsonResponse({
             'status'  : 'error',
-            'message' : response['message']
+            'message' : f'{response["message"]}'
         })
 
     except Exception as e:

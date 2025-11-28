@@ -23,13 +23,8 @@ from unidades.produccionLogistica.maxMin.models import Productos
 #     - Si "move_type" es igual a "out_refund", significa que es una nota de crédito.
 # --------------------------------------------------------------------------------------------------
 def insertLineaVentaOdoo(productos):
-    
-    '''    
-    subtotal = producto['price_subtotal'] if IDVenta.idVenta[0] != 'R' else (producto['price_subtotal']*(-1))
-    '''
     ventasObj = {v.idVenta: v for v in Ventas.objects.all()}
     productos_id = {p.idProducto: p for p in Productos.objects.all()}
-    productos_tmp_id = {p.idProductoTmp: p for p in Productos.objects.all()}
     
     lineasCreate=[]
     newLines = 0
