@@ -61,7 +61,7 @@ urlpatterns = [
     path('auto/createVentasOdoo/', createVentasOdoo),
     
     #!Rutas Actualizar Max y Min Insumos
-    #!path('auto/updatemaxmin/', updateMinMax),
+    path('auto/updatemaxmin/', updateMaxMinOdoo),
 
     #! Rutas para Marketing - Meta Ads (AutoRepCuentas)
     #! API Endpoints
