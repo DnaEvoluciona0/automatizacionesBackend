@@ -439,66 +439,10 @@ def get_updateInsumos(insumosIDs):
             'message'      : f'Error al ejecutar la consulta a Odoo: {str(e)}',
             'fault_code'   : e.faultCode,
             'fault_string' : e.faultString,
-        })  
-        
-        
-        
-
-
-# --------------------------------------------------------------------------------------------------
-# * Función: updateMaxMinOdoo
-# * Descripción: Actualiza las reglas de máximos y mínimos del insumo en cuestión
-#
-# ! Parámetros (deben de ser obligatorios):
-#   - idInsimo, es el id del insumo que se va a actualizar.
-#   - max, cantidad maxima nueva del producto
-#   - min, cantidad minima nueva
-#
-# ? Return:
-#   - Caso success:
-#       Retorna un JSON con el status success y un mensaje de satisfacción
-#   - Caso error: 
-#       En caso de que no exista una regla de max y min asociada al id del producto
-#       En caso de una excepción
-# --------------------------------------------------------------------------------------------------
-def updateMaxMinOdoo(idInsumo, max, min):
-    try:
-        #Obtiene la regla de maximo y minimo asociada al id del producto
-        orderPoint = conOdoo.models.execute_kw(
-            conOdoo.db, conOdoo.uid, conOdoo.password,
-            'stock.warehouse.orderpoint', 'search_read',
-            [[  ('product_id', '=', idInsumo)  ]],
-            {  'fields' : ['id']  }
-        )
-        
-        # Si existe la regla
-        if orderPoint:
-            idOrderPoint = orderPoint[0]['id']
-
-            # Actualiza máximo y minimo 
-            conOdoo.models.execute_kw(
-                conOdoo.db, conOdoo.uid, conOdoo.password,
-                'stock.warehouse.orderpoint', 'write', 
-                [[  idOrderPoint  ], 
-                {
-                    'product_min_qty' : int(round(min)),
-                    'product_max_qty' : int(round(max))
-                }]
-            )
-
-            return({
-                'status'  : 'success',
-                'message' : 'Se ha modificado correctamente el producto'
-            })
-
-        return({
-            'status'  : 'error',
-            'message' : f'No existe Máximo ni Mínimo de este producto {idInsumo}'
         })
-    except xmlrpc.client.Fault as e:
-        return ({
-            'status'       : 'error',
-            'message'      : f'Error al ejecutar la consulta a Odoo: {str(e)}',
-            'fault_code'   : e.faultCode,
-            'fault_string' : e.faultString,
+        
+def update_maxMin():
+    return ({
+            'status'   : "success",
+            'message' : "hola"
         })

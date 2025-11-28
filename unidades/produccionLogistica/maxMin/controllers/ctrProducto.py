@@ -150,8 +150,6 @@ def get_newProducts(productosIDs):
             {  'fields' : ['id', 'name', 'default_code', 'qty_available', 'product_brand_id', 'categ_id', 'route_ids', 'product_variant_id', 'sale_ok', 'create_date', 'active'] }
         )
         
-        
-        
         productNoID=[]
         productos={}
         
@@ -298,13 +296,13 @@ def get_allProductsExcel(productosIDs):
     #función try para obtener las facturas
     try:
         #Obtenemos los ids de clientes unicos
-        productosSKU = dfProducto['id_odoo'].unique().tolist()
+        productosTmp = dfProducto['id_odooTmp'].unique().tolist()
         
         productsOdoo = conOdoo.models.execute_kw(
             conOdoo.db, conOdoo.uid, conOdoo.password,
             'product.template', 'search_read',
             [[
-                ('id', 'in', productosSKU),
+                ('id', 'in', productosTmp),
                 '|', ('active', '=', True), ('active', '=', False), 
                 ('categ_id', 'not ilike', 'INSUMO'), 
                 ('categ_id.parent_id', 'not ilike', 'AGENCIA DIGITAL'), 
@@ -345,14 +343,12 @@ def get_allProductsExcel(productosIDs):
         productos={}
         
         skusEncontrados = [prod['default_code'] for prod in productsOdoo if prod.get('default_code')]
-        # Encontrar los SKUs no encontrados
-        skusNoEncontrados = [sku for sku in productosSKU if sku not in skusEncontrados]
         
         for index, producto in dfProducto.iterrows():
             if producto['sku'] not in skusEncontrados:
                 productsOdoo.append(
                     {
-                        'id': producto['id_odoo'],
+                        'id': producto['id_odooTmp'],
                         'product_variant_id': [producto['id_odoo'], ''],
                         'name': producto['nombre'],
                         'default_code': producto['sku'],
